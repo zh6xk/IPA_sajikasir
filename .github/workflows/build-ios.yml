@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build iOS App
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -62,3 +64,13 @@ jobs:
         with:
           name: sajikasir-ios-ipa
           path: ios/derived_data/Build/Products/Release-iphoneos/sajikasir-unsigned.ipa
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ios/derived_data/Build/Products/Release-iphoneos/sajikasir-unsigned.ipa
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "SajiKasir iOS Build #${{ github.run_number }}"
+          body: "Otomatis merilis file sajikasir-unsigned.ipa hasil build terbaru."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
