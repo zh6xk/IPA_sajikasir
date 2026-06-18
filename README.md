@@ -132,7 +132,17 @@ jobs:
 ```
 
 ### Cara Mengeksekusi:
-1. `git commit` dan `git push` semua kode proyek Anda (termasuk folder `.github` tadi) ke GitHub.
+
+1. Unggah kode proyek Anda (termasuk folder `.github` tadi) ke GitHub. Jika Anda belum pernah menghubungkan folder ini ke GitHub, jalankan perintah berikut di terminal Anda secara berurutan:
+   ```bash
+   git init
+   git add .
+   git commit -m "Upload proyek dan konfigurasi iOS Build"
+   git branch -M main
+   git remote add origin https://github.com/USERNAME_ANDA/NAMA_REPOSITORY.git
+   git push -u origin main
+   ```
+   *(Catatan: Jika muncul error "Author identity unknown", jalankan perintah `git config --global user.name "Nama Anda"` dan `git config --global user.email "email@anda.com"`, lalu ulangi langkah `git commit`).*
 2. Buka repository GitHub Anda di browser, masuk ke tab **Actions**.
 3. Di panel kiri, klik tulisan **"Build iOS IPA (Unsigned)"**.
 4. Di panel kanan, klik **"Run workflow"**.
