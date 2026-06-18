@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "SajiKasir",
+    "slug": "sajikasir",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.sajikasir"
+    },
+    "android": {
+      "package": "com.example.sajikasir"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-sqlite"
+    ]
+  }
+}

@@ -1,0 +1,64 @@
+name: Build iOS IPA (Unsigned)
+
+on:
+  workflow_dispatch: # Menambahkan tombol "Run workflow" di GitHub Actions
+
+jobs:
+  build:
+    name: Build iOS App
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prebuild iOS project (Expo)
+        run: npx expo prebuild --platform ios
+        
+      # CocoaPods biasanya sudah terinstal di image macos-latest GitHub Actions
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build unsigned IPA
+        run: |
+          cd ios
+          
+          # Mencari nama workspace dan scheme secara otomatis
+          WORKSPACE=$(ls | grep .xcworkspace | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          
+          echo "Building Workspace: $WORKSPACE with Scheme: $SCHEME"
+          
+          # Membangun aplikasi tanpa sertifikat Apple (Unsigned)
+          xcodebuild -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath derived_data \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+          # Membungkus hasil build (.app) menjadi file .ipa
+          cd derived_data/Build/Products/Release-iphoneos
+          mkdir Payload
+          cp -r "$SCHEME.app" Payload/
+          zip -r "sajikasir-unsigned.ipa" Payload
+          
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sajikasir-ios-ipa
+          path: ios/derived_data/Build/Products/Release-iphoneos/sajikasir-unsigned.ipa

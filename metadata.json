@@ -1,0 +1,6 @@
+{
+  "name": "SajiKasir",
+  "description": "Aplikasi Kasir Makanan & Menu Digital UMKM untuk mengelola menu, melayani order/pesanan, dan mengirimkan struk pembayaran langsung ke WhatsApp pelanggan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
