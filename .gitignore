@@ -17,3 +17,10 @@ local.properties
 .env
 debug.keystore
 node_modules
+
+# Expo
+.expo/
+bundle.js
+
+# VSCode
+.vscode/
