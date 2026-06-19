@@ -41,6 +41,12 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           cd android
+          
+          # Buat debug.keystore karena default release build Expo membutuhkannya
+          if [ ! -f "app/debug.keystore" ]; then
+            keytool -genkey -v -keystore app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon
           
