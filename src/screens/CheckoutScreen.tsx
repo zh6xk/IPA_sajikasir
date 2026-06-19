@@ -284,21 +284,29 @@ export const CheckoutScreen = ({ navigation }: any) => {
             {paymentMethod === 'QRIS' && (
               <View style={styles.paymentInfoBox}>
                 {qrisImage ? (
-                  <Image source={{ uri: qrisImage }} style={styles.qrisImage} resizeMode="contain" />
+                  <>
+                    <Image source={{ uri: qrisImage }} style={styles.qrisImage} resizeMode="contain" />
+                    <Text style={styles.paymentInfoText}>{qrisName || 'QRIS STORE'}</Text>
+                    {qrisNmid ? <Text style={styles.paymentSubText}>NMID: {qrisNmid}</Text> : null}
+                    <Text style={styles.hintText}>{t('qrisHint')}</Text>
+                  </>
                 ) : (
-                  <Image source={require('../../assets/qris.jpg')} style={styles.qrisImage} resizeMode="contain" />
+                  <Text style={[styles.hintText, { color: colors.warning }]}>{t('qrisDummy')}</Text>
                 )}
-                <Text style={styles.paymentInfoText}>{qrisName || 'QRIS DUMMY STORE'}</Text>
-                <Text style={styles.paymentSubText}>NMID: {qrisNmid || 'ID1025459704447'}</Text>
-                <Text style={styles.hintText}>{t('qrisHint')}</Text>
               </View>
             )}
 
             {paymentMethod === 'Transfer' && (
               <View style={styles.paymentInfoBox}>
-                <Text style={styles.paymentInfoTitle}>{t('transferTo')} {bankName || 'Bank Mandiri'}</Text>
-                <Text style={styles.paymentInfoText}>{bankAccount || '1290011649973'}</Text>
-                <Text style={styles.paymentSubText}>a.n {bankAccountName || 'ARIEFANSYAH FARAWOWA'}</Text>
+                {bankName && bankAccount ? (
+                  <>
+                    <Text style={styles.paymentInfoTitle}>{t('transferTo')} {bankName}</Text>
+                    <Text style={styles.paymentInfoText}>{bankAccount}</Text>
+                    <Text style={styles.paymentSubText}>a.n {bankAccountName || '-'}</Text>
+                  </>
+                ) : (
+                  <Text style={[styles.hintText, { color: colors.warning }]}>{t('transferDummy')}</Text>
+                )}
               </View>
             )}
           </View>

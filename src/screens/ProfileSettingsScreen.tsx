@@ -219,7 +219,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
             <Text style={styles.label}>{t('bankNameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: Bank Mandiri"
+              placeholder={t('bankNamePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={localBankName}
               onChangeText={setLocalBankName}
@@ -228,7 +228,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
             <Text style={styles.label}>{t('accountNumberLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: 1290011649973"
+              placeholder={t('accountNumberPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={localBankAccount}
               onChangeText={setLocalBankAccount}
@@ -238,7 +238,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
             <Text style={styles.label}>{t('accountNameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: ARIEFANSYAH FARAWOWA"
+              placeholder={t('accountNamePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={localBankAccountName}
               onChangeText={setLocalBankAccountName}
@@ -266,7 +266,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
             <Text style={styles.label}>{t('qrisOutletName')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: QRIS IBRA, AHLI CHIROPRACTIC"
+              placeholder={t('qrisNamePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={localQrisName}
               onChangeText={setLocalQrisName}
@@ -275,7 +275,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
             <Text style={styles.label}>{t('nmidOptional')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: ID1025459704447"
+              placeholder={t('nmidPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={localQrisNmid}
               onChangeText={setLocalQrisNmid}
