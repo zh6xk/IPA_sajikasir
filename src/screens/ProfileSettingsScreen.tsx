@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
 import { ArrowLeft, Save } from 'lucide-react-native';
+import Constants from 'expo-constants';
 import { ThemeColors } from '../theme/Theme';
 
 export const ProfileSettingsScreen = ({ navigation }: any) => {
@@ -79,7 +80,7 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
 
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Tentang SajiKasir</Text>
-            <Text style={styles.infoText}>SajiKasir v1.0.0</Text>
+            <Text style={styles.infoText}>SajiKasir v{Constants.expoConfig?.version || '1.0.0'}</Text>
             <Text style={styles.infoText}>Aplikasi kasir pintar untuk mendukung usaha kuliner lokal Anda agar lebih efisien dan terorganisir.</Text>
           </View>
         </ScrollView>
