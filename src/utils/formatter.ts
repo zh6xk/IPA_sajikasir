@@ -54,3 +54,15 @@ export const generateWhatsAppText = (
 
   return `${header}\n\n${itemsText}${footer}`;
 };
+
+export const formatWhatsAppNumber = (phone: string): string => {
+  // Hapus semua karakter yang bukan angka (seperti +, -, spasi)
+  let numericPhone = phone.replace(/\D/g, '');
+  
+  // Jika diawali dengan angka 0, ubah menjadi 62
+  if (numericPhone.startsWith('0')) {
+    numericPhone = '62' + numericPhone.substring(1);
+  }
+  
+  return numericPhone;
+};

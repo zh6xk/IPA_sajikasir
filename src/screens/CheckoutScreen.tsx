@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
-import { formatRupiah, generateWhatsAppText } from '../utils/formatter';
+import { formatRupiah, generateWhatsAppText, formatWhatsAppNumber } from '../utils/formatter';
 import { insertTransaction } from '../database/db';
 import { ArrowLeft, MessageCircle } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
@@ -38,15 +38,16 @@ export const CheckoutScreen = ({ navigation }: any) => {
     const receiptText = generateWhatsAppText(storeName, cartItems, itemNotes, itemPortions, itemFlavorLevels);
     
     // Save to DB
+    const formattedWhatsApp = formatWhatsAppNumber(targetWhatsApp);
     await insertTransaction({
       receiptText,
       totalAmount,
       timestamp: Date.now(),
-      targetWhatsApp
+      targetWhatsApp: formattedWhatsApp
     });
 
     // Send to WA
-    const waUrl = `https://wa.me/${targetWhatsApp}?text=${encodeURIComponent(receiptText)}`;
+    const waUrl = `https://wa.me/${formattedWhatsApp}?text=${encodeURIComponent(receiptText)}`;
     
     try {
       await Linking.openURL(waUrl);

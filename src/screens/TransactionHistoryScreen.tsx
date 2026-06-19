@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatRupiah } from '../utils/formatter';
+import { formatRupiah, formatWhatsAppNumber } from '../utils/formatter';
 import { getTransactions, TransactionHistory, clearAllTransactions } from '../database/db';
 import { ArrowLeft, Trash2, Calendar, MessageCircle } from 'lucide-react-native';
 import { useAppContext } from '../context/AppContext';
@@ -34,7 +34,8 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
   };
 
   const openWhatsApp = (waNumber: string, text: string) => {
-    const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`;
+    const formattedWhatsApp = formatWhatsAppNumber(waNumber);
+    const waUrl = `https://wa.me/${formattedWhatsApp}?text=${encodeURIComponent(text)}`;
     Linking.openURL(waUrl).catch(() => {
       Alert.alert('Error', 'Gagal membuka WhatsApp.');
     });
