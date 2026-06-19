@@ -1,4 +1,4 @@
-# 🍔 SajiKasir (v1.0.0)
+# 🍔 SajiKasir (v1.1.0)
 
 **SajiKasir** adalah aplikasi Point of Sale (Kasir) modern yang dibangun menggunakan kerangka kerja **React Native (Expo)**. Aplikasi ini dirancang untuk mempermudah pengelolaan menu, pemesanan, dan pencatatan transaksi secara efisien.
 
