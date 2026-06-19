@@ -36,12 +36,13 @@ jobs:
         run: npx expo prebuild --platform android
 
       - name: Build APK
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=\"-Xmx4096m -XX:MaxMetaspaceSize=1024m\""
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           cd android
-          # Tambahkan konfigurasi memori Gradle untuk mencegah error OutOfMemory (Metaspace)
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
           chmod +x ./gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon
           
       - name: Rename APK
         run: |
