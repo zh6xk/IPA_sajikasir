@@ -29,7 +29,15 @@ npx expo start
 ```
 Gunakan aplikasi **Expo Go** di HP Anda untuk memindai barcode yang muncul di terminal.
 
-### 2. Cara Install File `.ipa` (Untuk iPhone/iOS)
+### 2. Cara Install File `.apk` (Untuk Android)
+Jika Anda menggunakan perangkat Android, silakan unduh file **`sajikasir-android.apk`** dari halaman **[Releases](https://github.com/zh6xk/IPA_sajikasir/releases)**.
+
+**Langkah Instalasi:**
+1. Unduh file `sajikasir-android.apk` langsung dari browser di HP Android Anda.
+2. Buka file tersebut, jika muncul peringatan "Install unknown apps", izinkan browser/file manager Anda untuk menginstal aplikasi.
+3. Tunggu proses instalasi selesai, dan aplikasi SajiKasir siap digunakan!
+
+### 3. Cara Install File `.ipa` (Untuk iPhone/iOS)
 Jika Anda hanya ingin langsung mencoba aplikasi SajiKasir di iPhone Anda tanpa repot melakukan *build*, silakan unduh file **`sajikasir-unsigned.ipa`** dari halaman **[Releases](https://github.com/zh6xk/IPA_sajikasir/releases)** repository ini.
 
 **Langkah Instalasi:**
@@ -41,15 +49,15 @@ Jika Anda hanya ingin langsung mencoba aplikasi SajiKasir di iPhone Anda tanpa r
 
 ---
 
-## 🌟 Tutorial Spesial: Cara Membangun (Build) IPA React Native Secara Gratis via GitHub Actions
+## 🌟 Tutorial Spesial: Cara Membangun (Build) IPA iOS & APK Android Secara Gratis via GitHub Actions
 
-Bagian terpenting dari repository ini! Jika Anda adalah seorang developer React Native / Expo dan ingin menghasilkan file `.ipa` secara **gratis** tanpa harus memiliki MacBook atau akun Apple Developer seharga $99, Anda bisa menggunakan trik GitHub Actions.
+Bagian terpenting dari repository ini! Jika Anda adalah seorang developer React Native / Expo dan ingin menghasilkan file `.ipa` (iOS) atau `.apk` (Android) secara **gratis** tanpa harus memiliki mesin berat, Anda bisa menggunakan trik GitHub Actions.
 
-GitHub menyediakan server virtual Mac (`macos-latest`) yang bisa kita manfaatkan untuk mengompilasi kode React Native menjadi aplikasi iOS asli (*unsigned*).
+GitHub menyediakan server virtual yang bisa kita manfaatkan untuk mengompilasi kode React Native menjadi aplikasi iOS dan Android asli.
 
 ### Langkah-langkah:
 1. Di dalam proyek React Native/Expo Anda, buat folder bersarang persis seperti ini: `.github/workflows/`.
-2. Di dalam folder `workflows` tersebut, buat file baru bernama `build-ios.yml`.
+2. Di dalam folder `workflows` tersebut, buat file baru bernama `build-ios.yml` (untuk iOS) dan `build-android.yml` (untuk Android).
 3. Salin (copy) dan tempel (paste) kode YAML sakti di bawah ini ke dalam file `build-ios.yml`:
 
 ```yaml

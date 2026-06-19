@@ -1,0 +1,62 @@
+name: Build Android APK (Unsigned)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: # Menambahkan tombol "Run workflow" di GitHub Actions
+
+jobs:
+  build:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Prebuild Android project (Expo)
+        run: npx expo prebuild --platform android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease
+          
+      - name: Rename APK
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk sajikasir-android.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sajikasir-android-apk
+          path: sajikasir-android.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sajikasir-android.apk
+          tag_name: ${{ github.ref_name }}
+          name: "SajiKasir Release ${{ github.ref_name }}"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
