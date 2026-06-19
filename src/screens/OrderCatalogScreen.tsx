@@ -1,22 +1,30 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
 import { FoodImageHolder } from '../components/FoodImageHolder';
 import { formatRupiah } from '../utils/formatter';
-import { ArrowLeft, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Trash2, Search } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const OrderCatalogScreen = ({ navigation }: any) => {
-  const { storeName, products, cart, addToCart, decreaseInCart, clearCart, colors } = useAppContext();
+  const { storeName, products, cart, addToCart, decreaseInCart, clearCart, colors, trackStock, t } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [search, setSearch] = useState('');
 
   const styles = getStyles(colors);
   const categories = ['Semua', 'Makanan', 'Minuman', 'Cemilan', 'Lainnya'];
-  
-  const filteredProducts = selectedCategory === 'Semua' 
-    ? products 
-    : products.filter(p => p.category === selectedCategory);
+  const categoryLabels: Record<string, string> = {
+    'Semua': t('all'),
+    'Makanan': t('food'),
+    'Minuman': t('drink'),
+    'Cemilan': t('snack'),
+    'Lainnya': t('other')
+  };
+
+  const filteredProducts = products
+    .filter(p => selectedCategory === 'Semua' || p.category === selectedCategory)
+    .filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   const cartItems = Object.entries(cart).map(([id, qty]) => {
     const product = products.find(p => p.id === Number(id));
@@ -34,27 +42,41 @@ export const OrderCatalogScreen = ({ navigation }: any) => {
           <ArrowLeft size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Layanan Order</Text>
+          <Text style={styles.headerTitle}>{t('orderService')}</Text>
           <Text style={styles.headerSubtitle}>{storeName}</Text>
         </View>
         {totalCartCount > 0 ? (
           <TouchableOpacity onPress={clearCart}>
-            <Text style={styles.clearText}>Kosongkan</Text>
+            <Text style={styles.clearText}>{t('clear')}</Text>
           </TouchableOpacity>
         ) : <View style={{ width: 60 }} />}
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchBox}>
+          <Search size={18} color={colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t('searchProduct')}
+            placeholderTextColor={colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
       </View>
 
       {/* Category Tabs */}
       <View style={styles.categoryContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {categories.map(cat => (
-            <TouchableOpacity 
-              key={cat} 
+            <TouchableOpacity
+              key={cat}
               style={[styles.categoryTab, selectedCategory === cat && styles.categoryTabActive]}
               onPress={() => setSelectedCategory(cat)}
             >
               <Text style={[styles.categoryText, selectedCategory === cat && styles.categoryTextActive]}>
-                {cat}
+                {categoryLabels[cat] || cat}
               </Text>
             </TouchableOpacity>
           ))}
@@ -63,16 +85,27 @@ export const OrderCatalogScreen = ({ navigation }: any) => {
 
       {/* Product List */}
       <ScrollView contentContainerStyle={styles.productList}>
-        {filteredProducts.map(product => {
+        {filteredProducts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>{t('noMatch')}</Text>
+          </View>
+        ) : filteredProducts.map(product => {
           const qty = cart[product.id] || 0;
+          const isOutOfStock = trackStock && product.stock <= 0;
+          const reachedStockLimit = trackStock && qty >= product.stock;
           return (
             <View key={product.id} style={styles.productCard}>
               <FoodImageHolder imageUri={product.imageUri} style={styles.productImage} />
-              
+
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{product.name}</Text>
                 <Text style={styles.productPrice}>{formatRupiah(product.price)}</Text>
-                
+                {trackStock && (
+                  <Text style={[styles.stockText, isOutOfStock && styles.stockOut]}>
+                    {isOutOfStock ? t('outOfStockLabel') : `${t('stockLabel')}: ${product.stock}`}
+                  </Text>
+                )}
+
                 <View style={styles.qtyContainer}>
                   {qty > 0 ? (
                     <>
@@ -80,13 +113,23 @@ export const OrderCatalogScreen = ({ navigation }: any) => {
                         {qty === 1 ? <Trash2 size={16} color={colors.danger} /> : <Text style={styles.qtyButtonText}>-</Text>}
                       </TouchableOpacity>
                       <Text style={styles.qtyText}>{qty}</Text>
-                      <TouchableOpacity style={styles.qtyButton} onPress={() => addToCart(product)}>
+                      <TouchableOpacity
+                        style={[styles.qtyButton, reachedStockLimit && styles.qtyButtonDisabled]}
+                        disabled={reachedStockLimit}
+                        onPress={() => addToCart(product)}
+                      >
                         <Text style={styles.qtyButtonText}>+</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <TouchableOpacity style={styles.addButton} onPress={() => addToCart(product)}>
-                      <Text style={styles.addButtonText}>Tambah</Text>
+                    <TouchableOpacity
+                      style={[styles.addButton, isOutOfStock && styles.addButtonDisabled]}
+                      disabled={isOutOfStock}
+                      onPress={() => addToCart(product)}
+                    >
+                      <Text style={[styles.addButtonText, isOutOfStock && styles.addButtonTextDisabled]}>
+                        {isOutOfStock ? t('outOfStockBtn') : t('addBtn')}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -100,11 +143,11 @@ export const OrderCatalogScreen = ({ navigation }: any) => {
       {totalCartCount > 0 && (
         <View style={styles.bottomBar}>
           <View>
-            <Text style={styles.bottomCountText}>{totalCartCount} Item Terpilih</Text>
+            <Text style={styles.bottomCountText}>{totalCartCount} {t('selectedItems')}</Text>
             <Text style={styles.bottomPriceText}>{formatRupiah(totalCartPrice)}</Text>
           </View>
           <TouchableOpacity style={styles.checkoutButton} onPress={() => navigation.navigate('CheckoutConfirm')}>
-            <Text style={styles.checkoutButtonText}>Lanjut Order</Text>
+            <Text style={styles.checkoutButtonText}>{t('continueOrder')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -145,6 +188,27 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.danger,
     fontWeight: 'bold',
   },
+  searchWrapper: {
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.chipBackground,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    color: colors.text,
+    fontSize: 14,
+  },
   categoryContainer: {
     backgroundColor: colors.card,
     paddingVertical: 12,
@@ -176,6 +240,14 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 16,
     paddingBottom: 100,
   },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
   productCard: {
     flexDirection: 'row',
     backgroundColor: colors.card,
@@ -204,7 +276,16 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  stockText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  stockOut: {
+    color: colors.danger,
+    fontWeight: 'bold',
   },
   qtyContainer: {
     flexDirection: 'row',
@@ -217,9 +298,15 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
+  addButtonDisabled: {
+    backgroundColor: colors.chipBackground,
+  },
   addButtonText: {
     color: colors.primary,
     fontWeight: 'bold',
+  },
+  addButtonTextDisabled: {
+    color: colors.textSecondary,
   },
   qtyButton: {
     width: 32,
@@ -228,6 +315,9 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.chipBackground,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  qtyButtonDisabled: {
+    opacity: 0.4,
   },
   qtyButtonText: {
     fontSize: 18,

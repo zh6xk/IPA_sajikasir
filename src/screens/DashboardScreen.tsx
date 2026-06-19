@@ -5,11 +5,11 @@ import { useAppContext } from '../context/AppContext';
 import { FoodImageHolder } from '../components/FoodImageHolder';
 import { formatRupiah } from '../utils/formatter';
 import { getTransactions, TransactionHistory } from '../database/db';
-import { MapPin, Store, History, ChevronRight, UtensilsCrossed, Moon, Sun } from 'lucide-react-native';
+import { MapPin, Store, History, ChevronRight, UtensilsCrossed, Moon, Sun, BarChart3, Users, AlertTriangle } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const DashboardScreen = ({ navigation }: any) => {
-  const { userName, userLocation, storeName, products, refreshProducts, isDark, toggleTheme, colors } = useAppContext();
+  const { userName, userLocation, storeName, products, refreshProducts, isDark, toggleTheme, colors, trackStock, t } = useAppContext();
   const [transactions, setTransactions] = useState<TransactionHistory[]>([]);
   const styles = getStyles(colors);
 
@@ -28,6 +28,9 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   const firstName = userName.split(' ')[0] || 'Kasir';
 
+  const lowStockItems = trackStock ? products.filter(p => p.stock > 0 && p.stock <= 5) : [];
+  const outOfStockCount = trackStock ? products.filter(p => p.stock <= 0).length : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -36,9 +39,9 @@ export const DashboardScreen = ({ navigation }: any) => {
           <View>
             <View style={styles.locationRow}>
               <MapPin size={14} color={colors.primary} />
-              <Text style={styles.locationText}>{userLocation.toUpperCase() || 'LOKASI TOKO'}</Text>
+              <Text style={styles.locationText}>{userLocation.toUpperCase() || t('storeLocation')}</Text>
             </View>
-            <Text style={styles.greetingText}>Halo, Kak {firstName}!</Text>
+            <Text style={styles.greetingText}>{t('hello')} {firstName}!</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity style={styles.themeToggle} onPress={toggleTheme}>
@@ -54,7 +57,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         <View style={styles.storeCard}>
           <View style={styles.storeCardContent}>
             <Text style={styles.storeNameText} numberOfLines={1}>{storeName}</Text>
-            <Text style={styles.storeMenuCount}>Total: {products.length} Menu Terdaftar</Text>
+            <Text style={styles.storeMenuCount}>Total: {products.length} {t('registeredMenu')}</Text>
           </View>
           <View style={styles.storeIconWrapper}>
             <Store size={20} color={colors.primary} />
@@ -68,21 +71,48 @@ export const DashboardScreen = ({ navigation }: any) => {
               <History size={20} color={colors.success} />
             </View>
             <View style={styles.historyTextWrapper}>
-              <Text style={styles.historyTitle}>Riwayat Bayar</Text>
-              <Text style={styles.historySubtitle}>{transactions.length} Transaksi Terbayar</Text>
+              <Text style={styles.historyTitle}>{t('paymentHistory')}</Text>
+              <Text style={styles.historySubtitle}>{transactions.length} {t('paidTransactions')}</Text>
             </View>
           </View>
           <ChevronRight size={20} color={colors.success} />
         </TouchableOpacity>
 
-        <Text style={styles.catalogTitle}>Katalog Menu</Text>
+        {/* Quick Actions */}
+        <View style={styles.quickRow}>
+          <TouchableOpacity style={styles.quickCard} onPress={() => navigation.navigate('SalesReport')}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.primaryLight }]}>
+              <BarChart3 size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.quickText}>{t('reports')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickCard} onPress={() => navigation.navigate('Customers')}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.primaryLight }]}>
+              <Users size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.quickText}>{t('customersBtn')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Low stock alert */}
+        {(lowStockItems.length > 0 || outOfStockCount > 0) && (
+          <TouchableOpacity style={styles.alertCard} onPress={() => navigation.navigate('ManageMenu')}>
+            <AlertTriangle size={18} color={colors.warning} />
+            <Text style={styles.alertText}>
+              {outOfStockCount > 0 ? `${outOfStockCount} ${t('outOfStock')} ` : ''}
+              {lowStockItems.length > 0 ? `${lowStockItems.length} ${t('lowStock')}` : ''}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <Text style={styles.catalogTitle}>{t('menuCatalog')}</Text>
 
         {/* Product Grid */}
         {products.length === 0 ? (
           <View style={styles.emptyState}>
             <Store size={48} color={colors.border} />
-            <Text style={styles.emptyTitle}>Katalog Menu Kosong</Text>
-            <Text style={styles.emptySubtitle}>Gunakan tombol bulat di kanan bawah untuk mulai menambah menu baru.</Text>
+            <Text style={styles.emptyTitle}>{t('emptyCatalog')}</Text>
+            <Text style={styles.emptySubtitle}>{t('emptyCatalogSub')}</Text>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -97,7 +127,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
                   <Text style={styles.productCategory}>{product.category}</Text>
                   <View style={styles.productMeta}>
-                    <Text style={styles.metaText}>{product.flavorType === 'Asin' ? '🧂 Asin' : '🍬 Manis'}</Text>
+                    <Text style={styles.metaText}>{product.flavorType === 'Asin' ? `🧂 ${t('salty')}` : `🍬 ${t('sweet')}`}</Text>
                   </View>
                   <Text style={styles.productPrice}>{formatRupiah(product.price)}</Text>
                 </View>
@@ -246,6 +276,48 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     color: colors.success,
     opacity: 0.8,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.warning + '22',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  alertText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
   },
   catalogTitle: {
     fontSize: 14,

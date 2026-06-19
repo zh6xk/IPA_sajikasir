@@ -9,7 +9,7 @@ import { ThemeColors } from '../theme/Theme';
 
 export const TransactionHistoryScreen = ({ navigation }: any) => {
   const [transactions, setTransactions] = useState<TransactionHistory[]>([]);
-  const { colors } = useAppContext();
+  const { colors, t } = useAppContext();
   const styles = getStyles(colors);
 
   useEffect(() => {
@@ -24,9 +24,9 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
   const handleClearHistory = () => {
     if (transactions.length === 0) return;
     
-    Alert.alert('Hapus Semua Riwayat', 'Apakah Anda yakin ingin menghapus semua riwayat transaksi?', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: async () => {
+    Alert.alert(t('deleteAllHistory'), t('deleteAllHistoryMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('delete'), style: 'destructive', onPress: async () => {
         await clearAllTransactions();
         fetchTransactions();
       }}
@@ -37,7 +37,7 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
     const formattedWhatsApp = formatWhatsAppNumber(waNumber);
     const waUrl = `https://wa.me/${formattedWhatsApp}?text=${encodeURIComponent(text)}`;
     Linking.openURL(waUrl).catch(() => {
-      Alert.alert('Error', 'Gagal membuka WhatsApp.');
+      Alert.alert(t('waErrorTitle'), t('waErrorMsg'));
     });
   };
 
@@ -47,7 +47,7 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Riwayat Transaksi</Text>
+        <Text style={styles.headerTitle}>{t('transactionHistoryTitle')}</Text>
         <TouchableOpacity onPress={handleClearHistory} disabled={transactions.length === 0}>
           <Trash2 size={20} color={transactions.length === 0 ? colors.border : colors.danger} />
         </TouchableOpacity>
@@ -57,8 +57,8 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
         {transactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Calendar size={48} color={colors.border} />
-            <Text style={styles.emptyTitle}>Belum Ada Transaksi</Text>
-            <Text style={styles.emptySubtitle}>Riwayat penjualan akan muncul di sini setelah Anda menyelesaikan order.</Text>
+            <Text style={styles.emptyTitle}>{t('noTransactions')}</Text>
+            <Text style={styles.emptySubtitle}>{t('noTransactionsSub')}</Text>
           </View>
         ) : (
           transactions.map(trx => {
@@ -86,7 +86,7 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
                   onPress={() => openWhatsApp(trx.targetWhatsApp, trx.receiptText)}
                 >
                   <MessageCircle size={16} color={colors.success} style={{ marginRight: 6 }} />
-                  <Text style={styles.resendButtonText}>Kirim Ulang ke {trx.targetWhatsApp}</Text>
+                  <Text style={styles.resendButtonText}>{t('resendTo')} {trx.targetWhatsApp}</Text>
                 </TouchableOpacity>
               </View>
             );

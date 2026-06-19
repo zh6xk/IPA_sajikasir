@@ -8,6 +8,7 @@ export interface ThemeColors {
   primaryLight: string;
   danger: string;
   success: string;
+  warning: string;
   icon: string;
   chipBackground: string;
   chipActiveBg: string;
@@ -23,6 +24,7 @@ export const lightTheme: ThemeColors = {
   primaryLight: '#FFCCBC',
   danger: '#D32F2F',
   success: '#25D366',
+  warning: '#F9A825',
   icon: '#FF5722',
   chipBackground: '#F5F5F5',
   chipActiveBg: '#FFCCBC',
@@ -38,6 +40,7 @@ export const darkTheme: ThemeColors = {
   primaryLight: 'rgba(255, 87, 34, 0.2)',
   danger: '#EF5350',
   success: '#25D366',
+  warning: '#FFB300',
   icon: '#FF5722',
   chipBackground: '#2C2C2C',
   chipActiveBg: 'rgba(255, 87, 34, 0.3)',

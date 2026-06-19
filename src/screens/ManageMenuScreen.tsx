@@ -8,7 +8,7 @@ import { ArrowLeft, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const ManageMenuScreen = ({ navigation }: any) => {
-  const { products, removeProduct, colors } = useAppContext();
+  const { products, removeProduct, colors, t } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
   const styles = getStyles(colors);
@@ -18,10 +18,18 @@ export const ManageMenuScreen = ({ navigation }: any) => {
     ? products 
     : products.filter(p => p.category === selectedCategory);
 
+  const categoryLabels: Record<string, string> = {
+    'Semua': t('all'),
+    'Makanan': t('food'),
+    'Minuman': t('drink'),
+    'Cemilan': t('snack'),
+    'Lainnya': t('other')
+  };
+
   const handleDelete = (id: number) => {
-    Alert.alert('Hapus Menu', 'Apakah Anda yakin ingin menghapus menu ini?', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: () => removeProduct(id) }
+    Alert.alert(t('deleteConfirm'), t('deleteConfirmMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('delete'), style: 'destructive', onPress: () => removeProduct(id) }
     ]);
   };
 
@@ -32,7 +40,7 @@ export const ManageMenuScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manajemen Menu</Text>
+        <Text style={styles.headerTitle}>{t('manageMenu')}</Text>
       </View>
 
       {/* Category Tabs */}
@@ -45,7 +53,7 @@ export const ManageMenuScreen = ({ navigation }: any) => {
               onPress={() => setSelectedCategory(cat)}
             >
               <Text style={[styles.categoryText, selectedCategory === cat && styles.categoryTextActive]}>
-                {cat}
+                {categoryLabels[cat] || cat}
               </Text>
             </TouchableOpacity>
           ))}
@@ -68,7 +76,7 @@ export const ManageMenuScreen = ({ navigation }: any) => {
                   onPress={() => navigation.navigate('AddEditProduct', { product })}
                 >
                   <Edit2 size={16} color="#2196F3" />
-                  <Text style={styles.editButtonText}>Edit</Text>
+                  <Text style={styles.editButtonText}>{t('edit')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.deleteButton} 

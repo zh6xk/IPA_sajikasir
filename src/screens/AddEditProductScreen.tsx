@@ -8,7 +8,7 @@ import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const AddEditProductScreen = ({ route, navigation }: any) => {
-  const { addProduct, editProduct, colors } = useAppContext();
+  const { addProduct, editProduct, colors, t } = useAppContext();
   const productToEdit = route.params?.product;
 
   const styles = getStyles(colors);
@@ -18,9 +18,22 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
   const [category, setCategory] = useState('Makanan');
   const [flavorType, setFlavorType] = useState<'Asin' | 'Manis'>('Asin');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [stock, setStock] = useState('0');
 
   const categories = ['Makanan', 'Minuman', 'Cemilan', 'Lainnya'];
   const flavorTypes = ['Asin', 'Manis'];
+
+  const categoryLabels: Record<string, string> = {
+    'Makanan': t('food'),
+    'Minuman': t('drink'),
+    'Cemilan': t('snack'),
+    'Lainnya': t('other')
+  };
+
+  const flavorLabels: Record<string, string> = {
+    'Asin': t('salty'),
+    'Manis': t('sweet')
+  };
 
   useEffect(() => {
     if (productToEdit) {
@@ -29,6 +42,7 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
       setCategory(productToEdit.category);
       setFlavorType(productToEdit.flavorType || 'Asin');
       setImageUri(productToEdit.imageUri);
+      setStock((productToEdit.stock ?? 0).toString());
     }
   }, [productToEdit]);
 
@@ -47,13 +61,13 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
 
   const handleSave = async () => {
     if (!name.trim() || !price.trim()) {
-      Alert.alert('Error', 'Nama dan Harga produk wajib diisi.');
+      Alert.alert(t('error'), t('productReqErr'));
       return;
     }
 
     const numericPrice = parseFloat(price);
     if (isNaN(numericPrice)) {
-      Alert.alert('Error', 'Harga harus berupa angka yang valid.');
+      Alert.alert(t('error'), t('priceInvalidErr'));
       return;
     }
 
@@ -62,7 +76,8 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
       price: numericPrice,
       category,
       flavorType,
-      imageUri: imageUri || 'preset_nasigoreng'
+      imageUri: imageUri || 'preset_nasigoreng',
+      stock: parseInt(stock, 10) || 0,
     };
 
     if (productToEdit) {
@@ -84,7 +99,7 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{productToEdit ? 'Edit Menu' : 'Tambah Menu Baru'}</Text>
+          <Text style={styles.headerTitle}>{productToEdit ? t('editProduct') : t('addProduct')}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
@@ -94,10 +109,10 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
             <View style={styles.imageActions}>
               <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
                 <ImageIcon size={20} color={colors.primary} />
-                <Text style={styles.imageButtonText}>Pilih Foto</Text>
+                <Text style={styles.imageButtonText}>{t('uploadPhoto')}</Text>
               </TouchableOpacity>
               
-              <Text style={styles.orText}>ATAU PRESET</Text>
+              <Text style={styles.orText}>{t('orPreset')}</Text>
               
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetsList}>
                 {PRESET_ITEMS.map(preset => (
@@ -114,10 +129,10 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Nama Produk</Text>
+            <Text style={styles.label}>{t('productName')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: Nasi Goreng Spesial"
+              placeholder={t('productNamePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
@@ -125,10 +140,10 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Harga (Rp)</Text>
+            <Text style={styles.label}>{t('price')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Contoh: 15000"
+              placeholder={t('pricePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               value={price}
               onChangeText={setPrice}
@@ -137,7 +152,20 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Kategori</Text>
+            <Text style={styles.label}>{t('stock')}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Contoh: 50"
+              placeholderTextColor={colors.textSecondary}
+              value={stock}
+              onChangeText={setStock}
+              keyboardType="numeric"
+            />
+            <Text style={styles.helperText}>{t('helperStock')}</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>{t('category')}</Text>
             <View style={styles.chipContainer}>
               {categories.map(cat => (
                 <TouchableOpacity
@@ -145,14 +173,14 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
                   style={[styles.chip, category === cat && styles.chipActive]}
                   onPress={() => setCategory(cat)}
                 >
-                  <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>{cat}</Text>
+                  <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>{categoryLabels[cat] || cat}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Jenis Rasa</Text>
+            <Text style={styles.label}>{t('flavor')}</Text>
             <View style={styles.chipContainer}>
               {flavorTypes.map(flavor => (
                 <TouchableOpacity
@@ -160,14 +188,14 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
                   style={[styles.chip, flavorType === flavor && styles.chipActive]}
                   onPress={() => setFlavorType(flavor as 'Asin' | 'Manis')}
                 >
-                  <Text style={[styles.chipText, flavorType === flavor && styles.chipTextActive]}>{flavor}</Text>
+                  <Text style={[styles.chipText, flavorType === flavor && styles.chipTextActive]}>{flavorLabels[flavor] || flavor}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Simpan Menu</Text>
+            <Text style={styles.saveButtonText}>{t('saveProduct')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -270,6 +298,11 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     color: colors.text,
+  },
+  helperText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
   chipContainer: {
     flexDirection: 'row',

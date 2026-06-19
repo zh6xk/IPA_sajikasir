@@ -4,7 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { ThemeColors } from '../theme/Theme';
 
 export const SplashScreen = ({ navigation }: any) => {
-  const { completeOnboarding, colors } = useAppContext();
+  const { completeOnboarding, colors, t } = useAppContext();
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [storeName, setStoreName] = useState('Warung SajiKasir');
@@ -13,7 +13,7 @@ export const SplashScreen = ({ navigation }: any) => {
 
   const handleStart = () => {
     if (name.trim() === '' || location.trim() === '' || storeName.trim() === '') {
-      alert('Mohon lengkapi semua data');
+      alert(t('fillAll'));
       return;
     }
     completeOnboarding(name, location, storeName);
@@ -27,41 +27,41 @@ export const SplashScreen = ({ navigation }: any) => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Text style={styles.title}>Selamat Datang di</Text>
-          <Text style={styles.appName}>SajiKasir</Text>
-          <Text style={styles.subtitle}>Sistem Kasir Pintar untuk Usaha Kuliner Anda</Text>
+          <Text style={styles.title}>{t('welcomeTo')}</Text>
+          <Text style={styles.appName}>{t('appTitle')}</Text>
+          <Text style={styles.subtitle}>{t('welcomeSub')}</Text>
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Nama Anda</Text>
+          <Text style={styles.label}>{t('yourName')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Masukkan nama anda"
+            placeholder={t('enterName')}
             placeholderTextColor={colors.textSecondary}
             value={name}
             onChangeText={setName}
           />
 
-          <Text style={styles.label}>Lokasi Usaha</Text>
+          <Text style={styles.label}>{t('location')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Jakarta Selatan"
+            placeholder={t('locationPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={location}
             onChangeText={setLocation}
           />
 
-          <Text style={styles.label}>Nama Toko/Warung</Text>
+          <Text style={styles.label}>{t('storeName')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Warung Barokah"
+            placeholder={t('storeNamePlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={storeName}
             onChangeText={setStoreName}
           />
 
           <TouchableOpacity style={styles.button} onPress={handleStart}>
-            <Text style={styles.buttonText}>Mulai Gunakan SajiKasir</Text>
+            <Text style={styles.buttonText}>{t('getStarted')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

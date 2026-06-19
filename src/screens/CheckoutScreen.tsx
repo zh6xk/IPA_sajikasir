@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
 import { formatRupiah, generateWhatsAppText, formatWhatsAppNumber } from '../utils/formatter';
-import { insertTransaction } from '../database/db';
-import { ArrowLeft, MessageCircle } from 'lucide-react-native';
+import { insertTransaction, decrementStock } from '../database/db';
+import { ArrowLeft, MessageCircle, Users } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const CheckoutScreen = ({ navigation }: any) => {
-  const { storeName, products, cart, clearCart, colors } = useAppContext();
+  const { storeName, products, cart, clearCart, colors, taxRate, trackStock, refreshProducts, customers, addCustomer, qrisImage, qrisName, qrisNmid, bankName, bankAccount, bankAccountName, t } = useAppContext();
   const [customerName, setCustomerName] = useState('');
   const [targetWhatsApp, setTargetWhatsApp] = useState('');
   const [itemNotes, setItemNotes] = useState<Record<number, string>>({});
-  
+  const [discountInput, setDiscountInput] = useState('');
+  const [amountPaidInput, setAmountPaidInput] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Tunai');
+  const [showCustomers, setShowCustomers] = useState(false);
+
   const styles = getStyles(colors);
 
   const [itemPortions, setItemPortions] = useState<Record<number, string>>({});
@@ -21,41 +25,113 @@ export const CheckoutScreen = ({ navigation }: any) => {
   const portionSizes = ['Kecil', 'Normal', 'Besar', 'Jumbo'];
   const spicinessLevels = ['Tidak Pedas', 'Normal', 'Pedas', 'Sangat Pedas'];
   const sweetnessLevels = ['Kurang Manis', 'Normal', 'Sangat Manis'];
+  const paymentMethods = ['Tunai', 'QRIS', 'Transfer'];
+
+  const portionLabels: Record<string, string> = {
+    'Kecil': t('portionSmall'),
+    'Normal': t('portionNormal'),
+    'Besar': t('portionLarge'),
+    'Jumbo': t('portionJumbo'),
+  };
+  const spicinessLabels: Record<string, string> = {
+    'Tidak Pedas': t('spicyNone'),
+    'Normal': t('spicyNormal'),
+    'Pedas': t('spicySpicy'),
+    'Sangat Pedas': t('spicyVery'),
+  };
+  const sweetnessLabels: Record<string, string> = {
+    'Kurang Manis': t('sweetLess'),
+    'Normal': t('sweetNormal'),
+    'Sangat Manis': t('sweetVery'),
+  };
+  const methodLabels: Record<string, string> = {
+    'Tunai': t('payCash'),
+    'QRIS': 'QRIS',
+    'Transfer': t('payTransfer'),
+  };
 
   const cartItems = Object.entries(cart).map(([id, qty]) => {
     const product = products.find(p => p.id === Number(id));
     return { product, qty };
   }).filter(item => item.product);
 
-  const totalAmount = cartItems.reduce((acc, item) => acc + (item.product!.price * item.qty), 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + (item.product!.price * item.qty), 0);
+  const discount = Math.min(parseFloat(discountInput) || 0, subtotal);
+  const tax = useMemo(() => Math.round((subtotal - discount) * (taxRate / 100)), [subtotal, discount, taxRate]);
+  const grandTotal = subtotal - discount + tax;
+  const amountPaid = parseFloat(amountPaidInput) || 0;
+  const change = amountPaid - grandTotal;
 
   const handleCheckout = async () => {
     if (!targetWhatsApp.trim()) {
-      Alert.alert('Error', 'Nomor WhatsApp pembeli wajib diisi.');
+      Alert.alert(t('error'), t('errWaRequired'));
       return;
     }
 
-    const receiptText = generateWhatsAppText(storeName, cartItems, itemNotes, itemPortions, itemFlavorLevels);
-    
-    // Save to DB
-    const formattedWhatsApp = formatWhatsAppNumber(targetWhatsApp);
-    await insertTransaction({
-      receiptText,
-      totalAmount,
-      timestamp: Date.now(),
-      targetWhatsApp: formattedWhatsApp
+    if (paymentMethod === 'Tunai' && amountPaid > 0 && change < 0) {
+      Alert.alert(t('errMoneyShortTitle'), t('errMoneyShortMsg'));
+      return;
+    }
+
+    const receiptText = generateWhatsAppText(storeName, cartItems, itemNotes, itemPortions, itemFlavorLevels, {
+      discount,
+      tax,
+      paymentMethod,
+      amountPaid: amountPaid > 0 ? amountPaid : grandTotal,
+      changeAmount: change > 0 ? change : 0,
+      customerName,
     });
 
-    // Send to WA
+    const formattedWhatsApp = formatWhatsAppNumber(targetWhatsApp);
+
+    // Auto-save customer if new
+    const existingCustomer = customers.find(c => c.phone === formattedWhatsApp || c.phone === targetWhatsApp);
+    if (!existingCustomer) {
+      await addCustomer({
+        name: customerName.trim() || t('newCustomer'),
+        phone: formattedWhatsApp,
+        note: '',
+        createdAt: Date.now()
+      });
+    }
+
+    const itemsJson = JSON.stringify(
+      cartItems.map(item => ({
+        productId: item.product!.id,
+        name: item.product!.name,
+        price: item.product!.price,
+        qty: item.qty,
+      }))
+    );
+
+    await insertTransaction({
+      receiptText,
+      totalAmount: grandTotal,
+      timestamp: Date.now(),
+      targetWhatsApp: formattedWhatsApp,
+      itemsJson,
+      paymentMethod,
+      amountPaid: amountPaid > 0 ? amountPaid : grandTotal,
+      changeAmount: change > 0 ? change : 0,
+      discount,
+      tax,
+      customerName,
+    });
+
+    // Reduce stock if tracking is enabled.
+    if (trackStock) {
+      await decrementStock(cartItems.map(item => ({ productId: item.product!.id, qty: item.qty })));
+      await refreshProducts();
+    }
+
     const waUrl = `https://wa.me/${formattedWhatsApp}?text=${encodeURIComponent(receiptText)}`;
-    
+
     try {
       await Linking.openURL(waUrl);
     } catch (e) {
-      Alert.alert('Gagal', 'Tidak dapat membuka WhatsApp. Pastikan WhatsApp sudah terinstal.');
+      Alert.alert(t('waErrorTitle'), t('waErrorMsg'));
     }
 
-    // Clear cart & navigate home
     clearCart();
     navigation.reset({
       index: 0,
@@ -65,21 +141,21 @@ export const CheckoutScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Konfirmasi Pembayaran</Text>
+          <Text style={styles.headerTitle}>{t('paymentConfirm')}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Rincian Pesanan</Text>
-            
+            <Text style={styles.cardTitle}>{t('orderDetail')}</Text>
+
             {cartItems.map(item => {
               const prodId = item.product!.id;
               const isAsin = item.product!.flavorType === 'Asin';
@@ -95,7 +171,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
                   </View>
 
                   {/* Portion Selector */}
-                  <Text style={styles.optionLabel}>Porsi:</Text>
+                  <Text style={styles.optionLabel}>{t('portion')}:</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                     {portionSizes.map(size => (
                       <TouchableOpacity
@@ -103,13 +179,13 @@ export const CheckoutScreen = ({ navigation }: any) => {
                         style={[styles.chip, currentPortion === size && styles.chipActive]}
                         onPress={() => setItemPortions(prev => ({ ...prev, [prodId]: size }))}
                       >
-                        <Text style={[styles.chipText, currentPortion === size && styles.chipTextActive]}>{size}</Text>
+                        <Text style={[styles.chipText, currentPortion === size && styles.chipTextActive]}>{portionLabels[size] || size}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
 
                   {/* Flavor Level Selector */}
-                  <Text style={styles.optionLabel}>{isAsin ? 'Tingkat Kepedasan:' : 'Tingkat Kemanisan:'}</Text>
+                  <Text style={styles.optionLabel}>{isAsin ? `${t('spicinessLevel')}:` : `${t('sweetnessLevel')}:`}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                     {flavorOptions.map(level => (
                       <TouchableOpacity
@@ -117,14 +193,14 @@ export const CheckoutScreen = ({ navigation }: any) => {
                         style={[styles.chip, currentFlavor === level && styles.chipActive]}
                         onPress={() => setItemFlavorLevels(prev => ({ ...prev, [prodId]: level }))}
                       >
-                        <Text style={[styles.chipText, currentFlavor === level && styles.chipTextActive]}>{level}</Text>
+                        <Text style={[styles.chipText, currentFlavor === level && styles.chipTextActive]}>{isAsin ? spicinessLabels[level] : sweetnessLabels[level]}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
 
                   <TextInput
                     style={styles.noteInput}
-                    placeholder="Tambah catatan (opsional)"
+                    placeholder={t('addNoteOptional')}
                     placeholderTextColor={colors.textSecondary}
                     value={itemNotes[prodId] || ''}
                     onChangeText={(text) => setItemNotes(prev => ({ ...prev, [prodId]: text }))}
@@ -132,19 +208,132 @@ export const CheckoutScreen = ({ navigation }: any) => {
                 </View>
               );
             })}
+          </View>
+
+          {/* Payment Summary */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t('paymentSummary')}</Text>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{t('subtotal')}</Text>
+              <Text style={styles.summaryValue}>{formatRupiah(subtotal)}</Text>
+            </View>
+
+            <Text style={styles.label}>{t('discountAmount')}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={colors.textSecondary}
+              value={discountInput}
+              onChangeText={setDiscountInput}
+              keyboardType="numeric"
+            />
+
+            {taxRate > 0 && (
+              <View style={[styles.summaryRow, { marginTop: 12 }]}>
+                <Text style={styles.summaryLabel}>{t('taxAmount')} ({taxRate}%)</Text>
+                <Text style={styles.summaryValue}>{formatRupiah(tax)}</Text>
+              </View>
+            )}
 
             <View style={styles.divider} />
-            
+
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total Tagihan</Text>
-              <Text style={styles.totalValue}>{formatRupiah(totalAmount)}</Text>
+              <Text style={styles.totalLabel}>{t('totalBill')}</Text>
+              <Text style={styles.totalValue}>{formatRupiah(grandTotal)}</Text>
             </View>
           </View>
 
+          {/* Payment Method */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Informasi Pelanggan</Text>
-            
-            <Text style={styles.label}>Nama Pembeli (Opsional)</Text>
+            <Text style={styles.cardTitle}>{t('paymentMethod')}</Text>
+            <View style={styles.chipContainer}>
+              {paymentMethods.map(method => (
+                <TouchableOpacity
+                  key={method}
+                  style={[styles.methodChip, paymentMethod === method && styles.chipActive]}
+                  onPress={() => setPaymentMethod(method)}
+                >
+                  <Text style={[styles.chipText, paymentMethod === method && styles.chipTextActive]}>{methodLabels[method] || method}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {paymentMethod === 'Tunai' && (
+              <>
+                <Text style={styles.label}>{t('amountPaidAmount')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={`${t('minAmount')} ${formatRupiah(grandTotal)}`}
+                  placeholderTextColor={colors.textSecondary}
+                  value={amountPaidInput}
+                  onChangeText={setAmountPaidInput}
+                  keyboardType="numeric"
+                />
+                {amountPaid > 0 && (
+                  <View style={[styles.summaryRow, { marginTop: 12 }]}>
+                    <Text style={styles.summaryLabel}>{t('changeAmount')}</Text>
+                    <Text style={[styles.changeValue, { color: change < 0 ? colors.danger : colors.success }]}>
+                      {change < 0 ? `${t('lessAmount')} ${formatRupiah(Math.abs(change))}` : formatRupiah(change)}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            {paymentMethod === 'QRIS' && (
+              <View style={styles.paymentInfoBox}>
+                {qrisImage ? (
+                  <Image source={{ uri: qrisImage }} style={styles.qrisImage} resizeMode="contain" />
+                ) : (
+                  <Image source={require('../../assets/qris.jpg')} style={styles.qrisImage} resizeMode="contain" />
+                )}
+                <Text style={styles.paymentInfoText}>{qrisName || 'QRIS DUMMY STORE'}</Text>
+                <Text style={styles.paymentSubText}>NMID: {qrisNmid || 'ID1025459704447'}</Text>
+                <Text style={styles.hintText}>{t('qrisHint')}</Text>
+              </View>
+            )}
+
+            {paymentMethod === 'Transfer' && (
+              <View style={styles.paymentInfoBox}>
+                <Text style={styles.paymentInfoTitle}>{t('transferTo')} {bankName || 'Bank Mandiri'}</Text>
+                <Text style={styles.paymentInfoText}>{bankAccount || '1290011649973'}</Text>
+                <Text style={styles.paymentSubText}>a.n {bankAccountName || 'ARIEFANSYAH FARAWOWA'}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.customerHeaderRow}>
+              <Text style={styles.cardTitle}>{t('customerInfo')}</Text>
+              {customers.length > 0 && (
+                <TouchableOpacity style={styles.pickCustomerBtn} onPress={() => setShowCustomers(s => !s)}>
+                  <Users size={16} color={colors.primary} />
+                  <Text style={styles.pickCustomerText}>{t('pick')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {showCustomers && (
+              <View style={styles.customerList}>
+                {customers.map(c => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={styles.customerItem}
+                    onPress={() => {
+                      setCustomerName(c.name);
+                      setTargetWhatsApp(c.phone);
+                      setShowCustomers(false);
+                    }}
+                  >
+                    <Text style={styles.customerItemName}>{c.name}</Text>
+                    <Text style={styles.customerItemPhone}>{c.phone}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <Text style={styles.label}>{t('buyerNameOptional')}</Text>
             <TextInput
               style={styles.input}
               placeholder="Contoh: Budi"
@@ -153,7 +342,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
               onChangeText={setCustomerName}
             />
 
-            <Text style={styles.label}>Nomor WhatsApp Pembeli</Text>
+            <Text style={styles.label}>{t('buyerWhatsApp')}</Text>
             <TextInput
               style={styles.input}
               placeholder="Contoh: 628123456789"
@@ -162,14 +351,14 @@ export const CheckoutScreen = ({ navigation }: any) => {
               onChangeText={setTargetWhatsApp}
               keyboardType="phone-pad"
             />
-            <Text style={styles.hint}>Gunakan awalan 62 atau kode negara tanpa tanda +</Text>
+            <Text style={styles.hint}>{t('waHint')}</Text>
           </View>
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
             <MessageCircle size={20} color="#FFF" style={styles.checkoutIcon} />
-            <Text style={styles.checkoutButtonText}>Kirim Struk via WhatsApp</Text>
+            <Text style={styles.checkoutButtonText}>{t('payAndSendWA')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -267,6 +456,20 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.primary,
     fontWeight: 'bold',
   },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  methodChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: colors.chipBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   noteInput: {
     backgroundColor: colors.card,
     borderRadius: 8,
@@ -280,6 +483,24 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  changeValue: {
+    fontSize: 16,
+    fontWeight: '900',
   },
   totalRow: {
     flexDirection: 'row',
@@ -318,6 +539,46 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
   },
+  customerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickCustomerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    marginBottom: 16,
+  },
+  pickCustomerText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  customerList: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  customerItem: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: colors.chipBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  customerItemName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  customerItemPhone: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
   bottomBar: {
     padding: 16,
     backgroundColor: colors.card,
@@ -339,5 +600,44 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  paymentInfoBox: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.chipBackground,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  paymentInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  paymentInfoText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  paymentSubText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  hintText: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  qrisImage: {
+    width: 250,
+    height: 250,
+    marginBottom: 12,
+    borderRadius: 8,
   },
 });

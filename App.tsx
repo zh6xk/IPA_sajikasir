@@ -13,12 +13,16 @@ import { AddEditProductScreen } from './src/screens/AddEditProductScreen';
 import { CheckoutScreen } from './src/screens/CheckoutScreen';
 import { TransactionHistoryScreen } from './src/screens/TransactionHistoryScreen';
 import { ProfileSettingsScreen } from './src/screens/ProfileSettingsScreen';
+import { SalesReportScreen } from './src/screens/SalesReportScreen';
+import { CustomerScreen } from './src/screens/CustomerScreen';
+import { LockScreen } from './src/screens/LockScreen';
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
-  const { isFirstTime } = useAppContext();
+  const { isFirstTime, pin } = useAppContext();
   const [isReady, setIsReady] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     // Wait a tick for context to load prefs
@@ -26,6 +30,11 @@ const AppNavigator = () => {
   }, []);
 
   if (!isReady) return null;
+
+  // Gate the app behind the PIN lock when one is configured.
+  if (pin && !unlocked) {
+    return <LockScreen onUnlock={() => setUnlocked(true)} />;
+  }
 
   return (
     <NavigationContainer>
@@ -41,6 +50,8 @@ const AppNavigator = () => {
         <Stack.Screen name="CheckoutConfirm" component={CheckoutScreen} />
         <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
         <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+        <Stack.Screen name="SalesReport" component={SalesReportScreen} />
+        <Stack.Screen name="Customers" component={CustomerScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
