@@ -1,6 +1,9 @@
 name: Build iOS IPA (Unsigned)
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch: # Menambahkan tombol "Run workflow" di GitHub Actions
 
 jobs:
@@ -69,8 +72,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ios/derived_data/Build/Products/Release-iphoneos/sajikasir-unsigned.ipa
-          tag_name: "v1.0.${{ github.run_number }}"
-          name: "SajiKasir iOS Build #${{ github.run_number }}"
-          body: "Otomatis merilis file sajikasir-unsigned.ipa hasil build terbaru."
+          tag_name: ${{ github.ref_name }}
+          name: "SajiKasir iOS Release ${{ github.ref_name }}"
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
