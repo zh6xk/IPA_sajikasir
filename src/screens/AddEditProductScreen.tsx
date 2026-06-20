@@ -47,15 +47,19 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
   }, [productToEdit]);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Gagal membuka galeri: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -65,7 +69,9 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
       return;
     }
 
-    const numericPrice = parseFloat(price);
+    // Clean up price string to support formats like '15.000' or '15,000'
+    const cleanPrice = price.replace(/[^0-9]/g, '');
+    const numericPrice = parseFloat(cleanPrice);
     if (isNaN(numericPrice)) {
       Alert.alert(t('error'), t('priceInvalidErr'));
       return;
@@ -77,16 +83,20 @@ export const AddEditProductScreen = ({ route, navigation }: any) => {
       category,
       flavorType,
       imageUri: imageUri || 'preset_nasigoreng',
-      stock: parseInt(stock, 10) || 0,
+      stock: parseInt(stock.replace(/[^0-9]/g, ''), 10) || 0,
     };
 
-    if (productToEdit) {
-      await editProduct({ ...productData, id: productToEdit.id });
-    } else {
-      await addProduct(productData);
-    }
+    try {
+      if (productToEdit) {
+        await editProduct({ ...productData, id: productToEdit.id });
+      } else {
+        await addProduct(productData);
+      }
 
-    navigation.goBack();
+      navigation.goBack();
+    } catch (error: any) {
+      Alert.alert('Error', 'Gagal menyimpan data: ' + (error.message || 'Unknown error'));
+    }
   };
 
   return (

@@ -3,7 +3,8 @@ name: Build Android APK (Unsigned)
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*-android'
+      - 'v*-all'
   workflow_dispatch: # Menambahkan tombol "Run workflow" di GitHub Actions
 
 jobs:
