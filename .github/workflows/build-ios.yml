@@ -3,7 +3,8 @@ name: Build iOS IPA (Unsigned)
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*-ios'
+      - 'v*-all'
   workflow_dispatch: # Menambahkan tombol "Run workflow" di GitHub Actions
 
 jobs:
