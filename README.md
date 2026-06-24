@@ -1,13 +1,14 @@
-# 🍔 SajiKasir (v1.1.0)
+# 🍔 SajiKasir (v1.2.0)
 
 **SajiKasir** adalah aplikasi Point of Sale (Kasir) modern yang dibangun menggunakan kerangka kerja **React Native (Expo)**. Aplikasi ini dirancang untuk mempermudah pengelolaan menu, pemesanan, dan pencatatan transaksi secara efisien.
 
 ## ✨ Fitur Utama
-1. **Manajemen Menu (Produk):** Tambah, ubah, dan hapus data produk makanan/minuman dengan mudah.
-2. **Katalog Pesanan:** Antarmuka kasir yang intuitif untuk memproses pesanan pelanggan dengan cepat.
-3. **Riwayat Transaksi:** Pencatatan dan pelacakan seluruh riwayat transaksi yang pernah dilakukan.
-4. **Pengaturan Profil:** Konfigurasi profil pengguna dan preferensi aplikasi.
-5. **Database Lokal:** Penyimpanan data offline yang aman dan ringan menggunakan SQLite.
+1. **Keamanan & Login Pintar:** Fitur *Auto-Login*, pengikatan *Perangkat Owner* bebas PIN, serta Login Tanpa PIN satu ketukan untuk staf kasir/crew.
+2. **Katalog Pesanan Dinamis:** Antarmuka kasir yang intuitif dengan laci keranjang *pop-up* untuk memproses pesanan pelanggan dengan cepat.
+3. **Manajemen Menu & Stok:** Tambah, ubah, hapus produk makanan/minuman, serta catat stok masuk (IN) dan keluar (SCRAP).
+4. **Manajemen Pengguna:** Kelola akun Owner, Manager, Kasir, dan Crew dengan sistem *swipe-to-delete* (geser & hapus) yang elegan.
+5. **Riwayat Transaksi & HPP:** Pelacakan riwayat transaksi serta kalkulator Harga Pokok Penjualan (HPP) untuk margin keuntungan.
+6. **Database Lokal Cepat & Aman:** Penyimpanan data offline 100% menggunakan SQLite tanpa butuh koneksi internet.
 
 ---
 
