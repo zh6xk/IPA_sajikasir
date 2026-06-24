@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from 'react-native-paper';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
@@ -7,7 +8,9 @@ import { ArrowLeft, Plus, Edit2, Trash2, User, Phone, X } from 'lucide-react-nat
 import { ThemeColors } from '../theme/Theme';
 
 export const CustomerScreen = ({ navigation }: any) => {
-  const { customers, addCustomer, editCustomer, removeCustomer, colors, t } = useAppContext();
+  const { customers, addCustomer, editCustomer, removeCustomer, t } = useAppContext();
+  const theme = useTheme();
+  const colors = theme.colors as any;
   const styles = getStyles(colors);
 
   const [modalVisible, setModalVisible] = useState(false);

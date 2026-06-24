@@ -1,3 +1,4 @@
+import { useTheme, Card } from 'react-native-paper';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +12,8 @@ export const ManageMenuScreen = ({ navigation }: any) => {
   const { products, removeProduct, colors, t } = useAppContext();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  const styles = getStyles(colors);
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const categories = ['Semua', 'Makanan', 'Minuman', 'Cemilan', 'Lainnya'];
   
   const filteredProducts = selectedCategory === 'Semua' 
@@ -63,30 +65,32 @@ export const ManageMenuScreen = ({ navigation }: any) => {
       {/* Product List */}
       <ScrollView contentContainerStyle={styles.productList}>
         {filteredProducts.map(product => (
-          <View key={product.id} style={styles.productCard}>
-            <FoodImageHolder imageUri={product.imageUri} style={styles.productImage} />
-            
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.productPrice}>{formatRupiah(product.price)}</Text>
+          <Card key={product.id} style={styles.productCard} mode="contained">
+            <Card.Content style={{ flexDirection: 'row', padding: 12 }}>
+              <FoodImageHolder imageUri={product.imageUri} style={styles.productImage} />
               
-              <View style={styles.actionContainer}>
-                <TouchableOpacity 
-                  style={styles.editButton} 
-                  onPress={() => navigation.navigate('AddEditProduct', { product })}
-                >
-                  <Edit2 size={16} color="#2196F3" />
-                  <Text style={styles.editButtonText}>{t('edit')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteButton} 
-                  onPress={() => handleDelete(product.id)}
-                >
-                  <Trash2 size={16} color={colors.danger} />
-                </TouchableOpacity>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.productPrice}>{formatRupiah(product.price)}</Text>
+                
+                <View style={styles.actionContainer}>
+                  <TouchableOpacity 
+                    style={styles.editButton} 
+                    onPress={() => navigation.navigate('AddEditProduct', { product })}
+                  >
+                    <Edit2 size={16} color={theme.colors.primary} />
+                    <Text style={[styles.editButtonText, { color: theme.colors.primary }]}>{t('edit')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.deleteButton} 
+                    onPress={() => handleDelete(product.id)}
+                  >
+                    <Trash2 size={16} color={theme.colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </View>
+            </Card.Content>
+          </Card>
         ))}
       </ScrollView>
 
@@ -101,18 +105,18 @@ export const ManageMenuScreen = ({ navigation }: any) => {
   );
 };
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.card,
+    backgroundColor: theme.colors.surfaceVariant,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   backButton: {
     padding: 8,
@@ -121,13 +125,13 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   categoryContainer: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.colors.surfaceVariant,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   categoryScroll: {
     paddingHorizontal: 16,
@@ -137,17 +141,17 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: colors.chipBackground,
+    backgroundColor: theme.colors.secondaryContainer,
   },
   categoryTabActive: {
-    backgroundColor: colors.chipActiveBg,
+    backgroundColor: theme.colors.primaryContainer,
   },
   categoryText: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   categoryTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   productList: {
     padding: 16,
@@ -155,12 +159,9 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 100,
   },
   productCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   productImage: {
     width: 80,
@@ -175,12 +176,12 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   productName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
     marginBottom: 4,
   },
   productPrice: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 12,
   },
   actionContainer: {
@@ -197,7 +198,6 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     marginRight: 8,
   },
   editButtonText: {
-    color: '#2196F3',
     fontWeight: 'bold',
     marginLeft: 4,
   },
@@ -213,7 +213,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.success,
+    backgroundColor: theme.colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,

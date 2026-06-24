@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Switch, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { Text, TextInput, Switch, Button, useTheme, Card as PaperCard } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
-import { ArrowLeft, Save, Database, DownloadCloud, UploadCloud, Shield, Calculator, Package, Globe } from 'lucide-react-native';
+import { ArrowLeft, Save, Database, DownloadCloud, UploadCloud, Shield, Calculator, Package, Globe, LogOut, Users as UsersIcon } from 'lucide-react-native';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemeColors } from '../theme/Theme';
 import { exportBackup, importBackup } from '../utils/backup';
+import { updateUser } from '../database/db';
+import * as Crypto from 'expo-crypto';
 
 export const ProfileSettingsScreen = ({ navigation }: any) => {
-  const { userName, userLocation, storeName, completeOnboarding, colors, taxRate, setTaxRate, trackStock, setTrackStock, pin, setPin, refreshProducts, refreshCustomers, qrisImage, setQrisImage, qrisName, setQrisName, qrisNmid, setQrisNmid, bankName, setBankName, bankAccount, setBankAccount, bankAccountName, setBankAccountName, language, setLanguage, t } = useAppContext();
-  const styles = getStyles(colors);
+  const { currentUser, logout, userName, userLocation, storeName, completeOnboarding, taxRate, setTaxRate, trackStock, setTrackStock, refreshProducts, refreshCustomers, qrisImage, setQrisImage, qrisName, setQrisName, qrisNmid, setQrisNmid, bankName, setBankName, bankAccount, setBankAccount, bankAccountName, setBankAccountName, language, setLanguage, allowLoginWithoutPin, setAllowLoginWithoutPin, isOwnerDevice, setIsOwnerDevice, t } = useAppContext();
+  const theme = useTheme();
+  const colors = theme.colors as any;
+  const styles = getStyles(theme);
 
   const [name, setName] = useState(userName);
   const [location, setLocation] = useState(userLocation);
@@ -18,8 +23,14 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
   
   const [localTax, setLocalTax] = useState(taxRate.toString());
   const [localTrackStock, setLocalTrackStock] = useState(trackStock);
-  const [localPin, setLocalPin] = useState(pin);
   const [localLanguage, setLocalLanguage] = useState(language || 'system');
+  const [localAllowLoginWithoutPin, setLocalAllowLoginWithoutPin] = useState(allowLoginWithoutPin);
+  const [localIsOwnerDevice, setLocalIsOwnerDevice] = useState(isOwnerDevice);
+  
+  // PIN Change State
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   
   const [localQrisImage, setLocalQrisImage] = useState(qrisImage);
   const [localQrisName, setLocalQrisName] = useState(qrisName);
@@ -40,22 +51,41 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim() || !location.trim() || !store.trim()) {
       Alert.alert(t('error'), t('errProfileDataRequired'));
       return;
     }
     
-    if (localPin && localPin.length < 4) {
-      Alert.alert(t('error'), t('errPinLength'));
-      return;
+    // Change PIN Logic
+    if (oldPin || newPin || confirmPin) {
+      const hashedOldPin = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, oldPin);
+      if (hashedOldPin !== currentUser?.pin_login) {
+        Alert.alert(t('error'), 'PIN Lama salah.');
+        return;
+      }
+      if (newPin.length < 4) {
+        Alert.alert(t('error'), 'PIN Baru minimal 4 digit.');
+        return;
+      }
+      if (newPin !== confirmPin) {
+        Alert.alert(t('error'), 'Konfirmasi PIN Baru tidak cocok.');
+        return;
+      }
+      // Update PIN in Database
+      if (currentUser) {
+        await updateUser({ ...currentUser, pin_login: newPin });
+        const hashedNewPin = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, newPin);
+        currentUser.pin_login = hashedNewPin; // Update local context reference
+      }
     }
 
     completeOnboarding(name, location, store);
     setTaxRate(parseFloat(localTax) || 0);
     setTrackStock(localTrackStock);
-    setPin(localPin);
     setLanguage(localLanguage);
+    setAllowLoginWithoutPin(localAllowLoginWithoutPin);
+    setIsOwnerDevice(localIsOwnerDevice);
     
     setQrisImage(localQrisImage);
     setQrisName(localQrisName);
@@ -108,36 +138,128 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{name.charAt(0).toUpperCase() || 'K'}</Text>
-            </View>
+          <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Shield size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Keamanan & Akun</Text>
           </View>
+          
+          <View style={styles.card}>
+            <Text style={styles.label}>Info Pengguna</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: colors.text, fontSize: 16 }}>{currentUser?.nama_lengkap}</Text>
+              <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{currentUser?.role}</Text>
+              </View>
+            </View>
+
+            {currentUser?.role === 'Owner' && (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 16 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: 'bold', color: colors.text }}>Login Tanpa PIN</Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary }}>Izinkan semua pengguna masuk tanpa memasukkan PIN</Text>
+                  </View>
+                  <Switch
+                    value={localAllowLoginWithoutPin}
+                    onValueChange={setLocalAllowLoginWithoutPin}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                  />
+                </View>
+
+                {localAllowLoginWithoutPin && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold', color: colors.text }}>Ini Perangkat Owner</Text>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary }}>Jadikan ini HP Utama Anda. Pemindahan akun tidak akan pernah menanyakan PIN.</Text>
+                    </View>
+                    <Switch
+                      value={localIsOwnerDevice}
+                      onValueChange={setLocalIsOwnerDevice}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                    />
+                  </View>
+                )}
+
+                <Text style={[styles.label, { marginTop: 8 }]}>Ganti PIN Akses</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label="PIN Lama"
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={oldPin}
+                  onChangeText={setOldPin}
+                />
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label="PIN Baru"
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={newPin}
+                  onChangeText={setNewPin}
+                />
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label="Konfirmasi PIN Baru"
+                  secureTextEntry
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={confirmPin}
+                  onChangeText={setConfirmPin}
+                />
+              </>
+            )}
+
+            {currentUser?.role === 'Owner' && (
+              <Button
+                mode="contained-tonal"
+                icon="account-group"
+                onPress={() => navigation.navigate('UserManagement')}
+                style={{ marginTop: 8, paddingVertical: 4 }}
+                buttonColor={theme.colors.secondaryContainer}
+                textColor={theme.colors.primary}
+              >
+                Manajemen Pengguna
+              </Button>
+            )}
+
+          </View>
+        </View>
 
           <View style={styles.card}>
             <Text style={styles.label}>{t('yourName')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
-              placeholder={t('enterName')}
-              placeholderTextColor={colors.textSecondary}
-              value={name}
+              label={t('enterName')}
+              value={currentUser?.role === 'Owner' ? name : currentUser?.nama_lengkap}
               onChangeText={setName}
+              editable={currentUser?.role === 'Owner'}
             />
+            {currentUser?.role !== 'Owner' && (
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 8 }}>*Hubungi Owner jika ingin mengubah nama atau toko.</Text>
+            )}
 
             <Text style={styles.label}>{t('storeNameLabel')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
-              placeholder="Contoh: Warung Barokah"
-              placeholderTextColor={colors.textSecondary}
+              label="Contoh: Warung Barokah"
               value={store}
               onChangeText={setStore}
+              editable={currentUser?.role === 'Owner'}
             />
 
             <Text style={styles.label}>{t('locationLabel')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
-              placeholder="Contoh: Jakarta Selatan"
-              placeholderTextColor={colors.textSecondary}
+              label="Contoh: Jakarta Selatan"
               value={location}
               onChangeText={setLocation}
             />
@@ -164,145 +286,100 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
 
-            <View style={styles.settingRow}>
-              <View style={styles.settingHeader}>
-                <Calculator size={18} color={colors.textSecondary} />
-                <Text style={styles.settingLabel}>{t('taxLabel')}</Text>
+          {currentUser?.role === 'Owner' && (
+            <>
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>{t('transferMethodLabel')}</Text>
+                
+                <Text style={styles.label}>{t('bankNameLabel')}</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label={t('bankNamePlaceholder')}
+                  value={localBankName}
+                  onChangeText={setLocalBankName}
+                />
+
+                <Text style={styles.label}>{t('accountNumberLabel')}</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label={t('accountNumberPlaceholder')}
+                  value={localBankAccount}
+                  onChangeText={setLocalBankAccount}
+                  keyboardType="numeric"
+                />
+
+                <Text style={styles.label}>{t('accountNameLabel')}</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label={t('accountNamePlaceholder')}
+                  value={localBankAccountName}
+                  onChangeText={setLocalBankAccountName}
+                />
               </View>
-              <TextInput
-                style={[styles.input, styles.smallInput]}
-                placeholder="0"
-                placeholderTextColor={colors.textSecondary}
-                value={localTax}
-                onChangeText={setLocalTax}
-                keyboardType="numeric"
-              />
-            </View>
 
-            <View style={styles.settingRow}>
-              <View style={styles.settingHeader}>
-                <Package size={18} color={colors.textSecondary} />
-                <Text style={styles.settingLabel}>{t('trackStockLabel')}</Text>
-              </View>
-              <Switch
-                value={localTrackStock}
-                onValueChange={setLocalTrackStock}
-                trackColor={{ false: colors.border, true: colors.primary }}
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingHeader}>
-                <Shield size={18} color={colors.textSecondary} />
-                <View>
-                  <Text style={styles.settingLabel}>{t('appPinLabel')}</Text>
-                  <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 2 }}>{t('pinHint')}</Text>
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>{t('qrisMethodLabel')}</Text>
+                
+                <Text style={styles.label}>{t('qrisImageLabel')}</Text>
+                <View style={styles.qrisImageContainer}>
+                  {localQrisImage ? (
+                    <Image source={{ uri: localQrisImage }} style={styles.qrisPreview} resizeMode="contain" />
+                  ) : (
+                    <View style={styles.qrisPlaceholder}>
+                      <Text style={styles.qrisPlaceholderText}>{t('noQrisImage')}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
+                    <UploadCloud size={18} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.uploadBtnText}>{localQrisImage ? t('changeQris') : t('uploadQris')}</Text>
+                  </TouchableOpacity>
                 </View>
+
+                <Text style={styles.label}>{t('qrisOutletName')}</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label={t('qrisNamePlaceholder')}
+                  value={localQrisName}
+                  onChangeText={setLocalQrisName}
+                />
+
+                <Text style={styles.label}>{t('nmidOptional')}</Text>
+                <TextInput
+                  mode="outlined"
+                  style={styles.input}
+                  label={t('nmidPlaceholder')}
+                  value={localQrisNmid}
+                  onChangeText={setLocalQrisNmid}
+                />
               </View>
-              <TextInput
-                style={[styles.input, styles.smallInput, { minWidth: 100 }]}
-                placeholder="6 Digit"
-                placeholderTextColor={colors.textSecondary}
-                value={localPin}
-                onChangeText={setLocalPin}
-                keyboardType="numeric"
-                secureTextEntry
-                maxLength={6}
-              />
-            </View>
-          </View>
+            </>
+          )}
 
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('transferMethodLabel')}</Text>
-            
-            <Text style={styles.label}>{t('bankNameLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('bankNamePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={localBankName}
-              onChangeText={setLocalBankName}
-            />
 
-            <Text style={styles.label}>{t('accountNumberLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('accountNumberPlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={localBankAccount}
-              onChangeText={setLocalBankAccount}
-              keyboardType="numeric"
-            />
+          <Button 
+            mode="contained" 
+            icon="content-save" 
+            onPress={handleSave} 
+            style={{ margin: 16, marginBottom: 8, paddingVertical: 4 }}
+          >
+            {t('save')}
+          </Button>
 
-            <Text style={styles.label}>{t('accountNameLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('accountNamePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={localBankAccountName}
-              onChangeText={setLocalBankAccountName}
-            />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('qrisMethodLabel')}</Text>
-            
-            <Text style={styles.label}>{t('qrisImageLabel')}</Text>
-            <View style={styles.qrisImageContainer}>
-              {localQrisImage ? (
-                <Image source={{ uri: localQrisImage }} style={styles.qrisPreview} resizeMode="contain" />
-              ) : (
-                <View style={styles.qrisPlaceholder}>
-                  <Text style={styles.qrisPlaceholderText}>{t('noQrisImage')}</Text>
-                </View>
-              )}
-              <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                <UploadCloud size={18} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={styles.uploadBtnText}>{localQrisImage ? t('changeQris') : t('uploadQris')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>{t('qrisOutletName')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('qrisNamePlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={localQrisName}
-              onChangeText={setLocalQrisName}
-            />
-
-            <Text style={styles.label}>{t('nmidOptional')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('nmidPlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={localQrisNmid}
-              onChangeText={setLocalQrisNmid}
-            />
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('dataBackup')}</Text>
-            <Text style={styles.hintText}>{t('backupHint')}</Text>
-            
-            <View style={styles.backupRow}>
-              <TouchableOpacity style={styles.backupBtn} onPress={handleExport}>
-                <DownloadCloud size={20} color={colors.primary} />
-                <Text style={styles.backupBtnText}>{t('exportBackup')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.backupBtn} onPress={handleImport}>
-                <UploadCloud size={20} color={colors.danger} />
-                <Text style={styles.backupBtnText}>{t('importData')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Save size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.saveButtonText}>{t('saveAllChanges')}</Text>
-          </TouchableOpacity>
+          <Button
+            mode="outlined"
+            icon="logout"
+            onPress={() => logout()}
+            style={{ marginHorizontal: 16, marginBottom: 16, paddingVertical: 4, borderColor: theme.colors.error }}
+            textColor={theme.colors.error}
+          >
+            Logout (Keluar)
+          </Button>
 
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>{t('aboutSajiKasir')}</Text>
@@ -315,18 +392,18 @@ export const ProfileSettingsScreen = ({ navigation }: any) => {
   );
 };
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.card,
+    backgroundColor: theme.colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   backButton: {
     padding: 8,
@@ -335,11 +412,20 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   content: {
     padding: 20,
     gap: 24,
+  },
+  section: {
+    gap: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   avatarContainer: {
     alignItems: 'center',
@@ -349,51 +435,41 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: theme.colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.card,
+    borderColor: theme.colors.card,
   },
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: theme.colors.text,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: colors.chipBackground,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-    color: colors.text,
+    marginBottom: 8,
+    backgroundColor: 'transparent',
   },
   smallInput: {
-    padding: 10,
-    marginBottom: 0,
     minWidth: 80,
-    textAlign: 'center',
   },
   settingRow: {
     flexDirection: 'row',
@@ -409,12 +485,17 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   settingLabel: {
     fontSize: 14,
-    color: colors.text,
+    color: theme.colors.text,
     fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
   },
   hintText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 16,
     lineHeight: 18,
   },
@@ -429,18 +510,16 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     padding: 12,
     borderRadius: 12,
-    backgroundColor: colors.chipBackground,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: theme.colors.secondaryContainer,
     gap: 8,
   },
   backupBtnText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   saveButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     padding: 16,
     borderRadius: 12,
     flexDirection: 'row',
@@ -460,12 +539,12 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 4,
   },
@@ -479,26 +558,23 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   qrisPlaceholder: {
     width: 200,
     height: 200,
-    borderRadius: 12,
-    backgroundColor: colors.chipBackground,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: theme.colors.secondaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    borderStyle: 'dashed',
   },
   qrisPlaceholderText: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontSize: 12,
   },
   uploadBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

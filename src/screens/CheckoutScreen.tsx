@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { Text, TextInput, Card, Button, Surface, Chip, Divider, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
 import { formatRupiah, generateWhatsAppText, formatWhatsAppNumber } from '../utils/formatter';
@@ -8,7 +9,9 @@ import { ArrowLeft, MessageCircle, Users } from 'lucide-react-native';
 import { ThemeColors } from '../theme/Theme';
 
 export const CheckoutScreen = ({ navigation }: any) => {
-  const { storeName, products, cart, clearCart, colors, taxRate, trackStock, refreshProducts, customers, addCustomer, qrisImage, qrisName, qrisNmid, bankName, bankAccount, bankAccountName, t } = useAppContext();
+  const { storeName, products, cart, clearCart, taxRate, trackStock, refreshProducts, customers, addCustomer, qrisImage, qrisName, qrisNmid, bankName, bankAccount, bankAccountName, t } = useAppContext();
+  const theme = useTheme();
+  const colors = theme.colors as any;
   const [customerName, setCustomerName] = useState('');
   const [targetWhatsApp, setTargetWhatsApp] = useState('');
   const [itemNotes, setItemNotes] = useState<Record<number, string>>({});
@@ -17,7 +20,7 @@ export const CheckoutScreen = ({ navigation }: any) => {
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [showCustomers, setShowCustomers] = useState(false);
 
-  const styles = getStyles(colors);
+  const styles = getStyles(theme);
 
   const [itemPortions, setItemPortions] = useState<Record<number, string>>({});
   const [itemFlavorLevels, setItemFlavorLevels] = useState<Record<number, string>>({});
@@ -153,8 +156,9 @@ export const CheckoutScreen = ({ navigation }: any) => {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('orderDetail')}</Text>
+          <Card mode="outlined" style={styles.card}>
+            <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>{t('orderDetail')}</Text>
 
             {cartItems.map(item => {
               const prodId = item.product!.id;
@@ -174,13 +178,15 @@ export const CheckoutScreen = ({ navigation }: any) => {
                   <Text style={styles.optionLabel}>{t('portion')}:</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                     {portionSizes.map(size => (
-                      <TouchableOpacity
+                      <Chip
                         key={size}
-                        style={[styles.chip, currentPortion === size && styles.chipActive]}
+                        mode={currentPortion === size ? 'flat' : 'outlined'}
+                        selected={currentPortion === size}
                         onPress={() => setItemPortions(prev => ({ ...prev, [prodId]: size }))}
+                        style={styles.chip}
                       >
-                        <Text style={[styles.chipText, currentPortion === size && styles.chipTextActive]}>{portionLabels[size] || size}</Text>
-                      </TouchableOpacity>
+                        {portionLabels[size] || size}
+                      </Chip>
                     ))}
                   </ScrollView>
 
@@ -188,42 +194,46 @@ export const CheckoutScreen = ({ navigation }: any) => {
                   <Text style={styles.optionLabel}>{isAsin ? `${t('spicinessLevel')}:` : `${t('sweetnessLevel')}:`}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                     {flavorOptions.map(level => (
-                      <TouchableOpacity
+                      <Chip
                         key={level}
-                        style={[styles.chip, currentFlavor === level && styles.chipActive]}
+                        mode={currentFlavor === level ? 'flat' : 'outlined'}
+                        selected={currentFlavor === level}
                         onPress={() => setItemFlavorLevels(prev => ({ ...prev, [prodId]: level }))}
+                        style={styles.chip}
                       >
-                        <Text style={[styles.chipText, currentFlavor === level && styles.chipTextActive]}>{isAsin ? spicinessLabels[level] : sweetnessLabels[level]}</Text>
-                      </TouchableOpacity>
+                        {isAsin ? spicinessLabels[level] : sweetnessLabels[level]}
+                      </Chip>
                     ))}
                   </ScrollView>
 
                   <TextInput
+                    mode="outlined"
                     style={styles.noteInput}
-                    placeholder={t('addNoteOptional')}
-                    placeholderTextColor={colors.textSecondary}
+                    label={t('addNoteOptional')}
                     value={itemNotes[prodId] || ''}
                     onChangeText={(text) => setItemNotes(prev => ({ ...prev, [prodId]: text }))}
+                    dense
                   />
                 </View>
               );
             })}
-          </View>
+            </Card.Content>
+          </Card>
 
           {/* Payment Summary */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('paymentSummary')}</Text>
+          <Card mode="outlined" style={styles.card}>
+            <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>{t('paymentSummary')}</Text>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{t('subtotal')}</Text>
               <Text style={styles.summaryValue}>{formatRupiah(subtotal)}</Text>
             </View>
 
-            <Text style={styles.label}>{t('discountAmount')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
-              placeholder="0"
-              placeholderTextColor={colors.textSecondary}
+              label={t('discountAmount')}
               value={discountInput}
               onChangeText={setDiscountInput}
               keyboardType="numeric"
@@ -236,36 +246,40 @@ export const CheckoutScreen = ({ navigation }: any) => {
               </View>
             )}
 
-            <View style={styles.divider} />
+            <Divider style={styles.divider} />
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{t('totalBill')}</Text>
               <Text style={styles.totalValue}>{formatRupiah(grandTotal)}</Text>
             </View>
-          </View>
+            </Card.Content>
+          </Card>
 
           {/* Payment Method */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('paymentMethod')}</Text>
+          <Card mode="outlined" style={styles.card}>
+            <Card.Content>
+            <Text variant="titleMedium" style={styles.cardTitle}>{t('paymentMethod')}</Text>
             <View style={styles.chipContainer}>
               {paymentMethods.map(method => (
-                <TouchableOpacity
+                <Chip
                   key={method}
-                  style={[styles.methodChip, paymentMethod === method && styles.chipActive]}
+                  mode={paymentMethod === method ? 'flat' : 'outlined'}
+                  selected={paymentMethod === method}
                   onPress={() => setPaymentMethod(method)}
+                  style={styles.chip}
                 >
-                  <Text style={[styles.chipText, paymentMethod === method && styles.chipTextActive]}>{methodLabels[method] || method}</Text>
-                </TouchableOpacity>
+                  {methodLabels[method] || method}
+                </Chip>
               ))}
             </View>
 
             {paymentMethod === 'Tunai' && (
               <>
-                <Text style={styles.label}>{t('amountPaidAmount')}</Text>
                 <TextInput
+                  mode="outlined"
                   style={styles.input}
+                  label={t('amountPaidAmount')}
                   placeholder={`${t('minAmount')} ${formatRupiah(grandTotal)}`}
-                  placeholderTextColor={colors.textSecondary}
                   value={amountPaidInput}
                   onChangeText={setAmountPaidInput}
                   keyboardType="numeric"
@@ -309,11 +323,13 @@ export const CheckoutScreen = ({ navigation }: any) => {
                 )}
               </View>
             )}
-          </View>
+            </Card.Content>
+          </Card>
 
-          <View style={styles.card}>
+          <Card mode="outlined" style={styles.card}>
+            <Card.Content>
             <View style={styles.customerHeaderRow}>
-              <Text style={styles.cardTitle}>{t('customerInfo')}</Text>
+              <Text variant="titleMedium" style={styles.cardTitle}>{t('customerInfo')}</Text>
               {customers.length > 0 && (
                 <TouchableOpacity style={styles.pickCustomerBtn} onPress={() => setShowCustomers(s => !s)}>
                   <Users size={16} color={colors.primary} />
@@ -341,51 +357,58 @@ export const CheckoutScreen = ({ navigation }: any) => {
               </View>
             )}
 
-            <Text style={styles.label}>{t('buyerNameOptional')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
+              label={t('buyerNameOptional')}
               placeholder="Contoh: Budi"
-              placeholderTextColor={colors.textSecondary}
               value={customerName}
               onChangeText={setCustomerName}
             />
 
-            <Text style={styles.label}>{t('buyerWhatsApp')}</Text>
             <TextInput
+              mode="outlined"
               style={styles.input}
+              label={t('buyerWhatsApp')}
               placeholder="Contoh: 628123456789"
-              placeholderTextColor={colors.textSecondary}
               value={targetWhatsApp}
               onChangeText={setTargetWhatsApp}
               keyboardType="phone-pad"
             />
             <Text style={styles.hint}>{t('waHint')}</Text>
-          </View>
+            </Card.Content>
+          </Card>
         </ScrollView>
 
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
-            <MessageCircle size={20} color="#FFF" style={styles.checkoutIcon} />
-            <Text style={styles.checkoutButtonText}>{t('payAndSendWA')}</Text>
-          </TouchableOpacity>
-        </View>
+        <Surface style={styles.bottomBar} elevation={4}>
+          <Button 
+            mode="contained" 
+            buttonColor={theme.colors.error} 
+            icon="whatsapp"
+            onPress={handleCheckout} 
+            style={styles.checkoutButton}
+            contentStyle={{ paddingVertical: 8 }}
+          >
+            {t('payAndSendWA')}
+          </Button>
+        </Surface>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.card,
+    backgroundColor: theme.colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   backButton: {
     padding: 8,
@@ -394,28 +417,22 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   content: {
     padding: 16,
     gap: 16,
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 16,
   },
   cardTitle: {
-    fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 16,
   },
   orderItem: {
     marginBottom: 20,
-    backgroundColor: colors.chipBackground,
+    backgroundColor: theme.colors.chipBackground,
     padding: 12,
     borderRadius: 12,
   },
@@ -427,17 +444,17 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   orderItemName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   orderItemPrice: {
     fontSize: 16,
     fontWeight: '900',
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   optionLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   chipScroll: {
@@ -445,24 +462,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: {
-    backgroundColor: colors.chipActiveBg,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  chipTextActive: {
-    color: colors.primary,
-    fontWeight: 'bold',
   },
   chipContainer: {
     flexDirection: 'row',
@@ -470,26 +470,13 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  methodChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: colors.chipBackground,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   noteInput: {
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 12,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     marginVertical: 16,
   },
   summaryRow: {
@@ -499,12 +486,12 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: theme.colors.text,
   },
   changeValue: {
     fontSize: 16,
@@ -518,32 +505,27 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 8,
     marginTop: 8,
   },
   input: {
-    backgroundColor: colors.chipBackground,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
+    backgroundColor: theme.colors.background,
+    marginBottom: 16,
   },
   hint: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -559,11 +541,11 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: theme.colors.primaryLight,
     marginBottom: 16,
   },
   pickCustomerText: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontWeight: 'bold',
     fontSize: 12,
   },
@@ -574,71 +556,58 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   customerItem: {
     padding: 12,
     borderRadius: 10,
-    backgroundColor: colors.chipBackground,
+    backgroundColor: theme.colors.chipBackground,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   customerItemName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: colors.text,
+    color: theme.colors.text,
   },
   customerItemPhone: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   bottomBar: {
     padding: 16,
-    backgroundColor: colors.card,
+    backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.outlineVariant,
   },
   checkoutButton: {
-    backgroundColor: colors.success,
-    padding: 16,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkoutIcon: {
-    marginRight: 8,
-  },
-  checkoutButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   paymentInfoBox: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: colors.chipBackground,
+    backgroundColor: theme.colors.chipBackground,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   paymentInfoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: theme.colors.primary,
     marginBottom: 8,
   },
   paymentInfoText: {
     fontSize: 18,
     fontWeight: '900',
-    color: colors.text,
+    color: theme.colors.text,
     marginBottom: 4,
     textAlign: 'center',
   },
   paymentSubText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   hintText: {
     fontSize: 12,
-    color: colors.primary,
+    color: theme.colors.primary,
     marginTop: 12,
     fontStyle: 'italic',
   },

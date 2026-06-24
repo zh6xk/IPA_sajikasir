@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTheme } from 'react-native-paper';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
@@ -16,7 +17,9 @@ const formatCompact = (val: number) => {
 };
 
 export const SalesReportScreen = ({ navigation }: any) => {
-  const { colors, t } = useAppContext();
+  const { t } = useAppContext();
+  const theme = useTheme();
+  const colors = theme.colors as any;
   const styles = getStyles(colors);
   const [transactions, setTransactions] = useState<TransactionHistory[]>([]);
   const [range, setRange] = useState<RangeKey>('today');

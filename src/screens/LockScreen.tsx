@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
-import { Lock, Delete } from 'lucide-react-native';
-import { ThemeColors } from '../theme/Theme';
+import { Lock, Users, ArrowLeft } from 'lucide-react-native';
+import { Text, TextInput, Button, useTheme, Avatar, Surface, IconButton } from 'react-native-paper';
+import { getUsers, User } from '../database/db';
 
 interface Props {
   route: any;
@@ -11,148 +12,219 @@ interface Props {
 }
 
 export const LockScreen = ({ route, navigation }: Props) => {
-  const { pin, colors, t } = useAppContext();
-  const styles = getStyles(colors);
+  const { login, loginWithoutPin, allowLoginWithoutPin, isOwnerDevice, t } = useAppContext();
+  const theme = useTheme();
+  const styles = getStyles(theme);
   const [entry, setEntry] = useState('');
-  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedAdmin, setSelectedAdmin] = useState<User | null>(null);
 
-  const handleDigit = (digit: string) => {
-    if (entry.length >= 6) return;
-    const next = entry + digit;
-    setError(false);
-    setEntry(next);
+  useEffect(() => {
+    if (allowLoginWithoutPin) {
+      loadUsers();
+    }
+  }, [allowLoginWithoutPin]);
 
-    if (next.length === pin.length) {
-      if (next === pin) {
-        navigation.replace(route.params?.nextScreen || 'Dashboard');
-      } else {
-        setError(true);
-        Alert.alert(t('error'), t('pinWrong'));
-        setEntry('');
-      }
+  const loadUsers = async () => {
+    const list = await getUsers();
+    setUsers(list.filter(u => u.status_aktif));
+  };
+
+  const handleUserSelect = (user: User) => {
+    if (!isOwnerDevice && (user.role === 'Owner' || user.role === 'Manager')) {
+      setSelectedAdmin(user);
+      setEntry(''); // Reset PIN input for admin
+    } else {
+      loginWithoutPin(user);
+      navigation?.replace(route?.params?.nextScreen || 'Dashboard');
     }
   };
 
-  const handleDelete = () => {
-    setError(false);
-    setEntry(prev => prev.slice(0, -1));
+  const handleAdminLogin = async () => {
+    if (entry.length < 4) {
+      Alert.alert(t('error'), 'PIN minimal 4 digit.');
+      return;
+    }
+    setLoading(true);
+    const success = await login(entry);
+    setLoading(false);
+    
+    if (success) {
+      // login(entry) checks DB to see if the PIN is valid and sets the user.
+      // But we must verify if the logged in user MATCHES the selectedAdmin!
+      // However, AppContext login automatically sets currentUser to whoever owns the PIN.
+      // For a better UX, we'll let it login whoever the PIN belongs to.
+      navigation?.replace(route?.params?.nextScreen || 'Dashboard');
+    } else {
+      Alert.alert(t('error'), 'PIN tidak valid.');
+      setEntry('');
+    }
   };
 
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
+  const handleLogin = async () => {
+    if (entry.length < 4) {
+      Alert.alert(t('error'), 'PIN minimal 4 digit.');
+      return;
+    }
+    setLoading(true);
+    const success = await login(entry);
+    setLoading(false);
+    
+    if (success) {
+      navigation?.replace(route?.params?.nextScreen || 'Dashboard');
+    } else {
+      Alert.alert(t('error'), 'PIN tidak ditemukan atau akun tidak aktif.');
+      setEntry('');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.top}>
-        <View style={styles.header}>
-          <Lock size={48} color={colors.primary} style={{ marginBottom: 16 }} />
-          <Text style={styles.title}>{t('enterPin')}</Text>
-          <Text style={styles.subtitle}>{t('appTitle')}</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
+        <View style={styles.top}>
+          <Lock size={48} color={theme.colors.primary} style={{ marginBottom: 16 }} />
+          <Text variant="headlineMedium" style={styles.title}>{t('enterPin')}</Text>
+          <Text variant="bodyMedium" style={styles.subtitle}>{t('appTitle')}</Text>
         </View>
 
-        <View style={styles.dotsRow}>
-          {Array.from({ length: pin.length || 4 }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i < entry.length && styles.dotFilled,
-                error && styles.dotError,
-              ]}
+        {allowLoginWithoutPin && !selectedAdmin ? (
+          <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
+            <Text variant="titleMedium" style={{ marginBottom: 24, fontWeight: 'bold' }}>Pilih Akun Anda</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 20 }}>
+              {users.map(u => (
+                <TouchableOpacity key={u.id_user} onPress={() => handleUserSelect(u)}>
+                  <Surface style={styles.userCard} elevation={2}>
+                    <Avatar.Text 
+                      size={56} 
+                      label={u.nama_lengkap.charAt(0).toUpperCase()} 
+                      style={{ backgroundColor: theme.colors.primaryContainer, marginBottom: 12 }} 
+                      color={theme.colors.onPrimaryContainer} 
+                    />
+                    <Text style={{ fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
+                      {u.nama_lengkap.split(' ')[0]}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                      {u.role}
+                    </Text>
+                  </Surface>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        ) : selectedAdmin ? (
+          <View style={styles.form}>
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+              <Avatar.Text 
+                size={64} 
+                label={selectedAdmin.nama_lengkap.charAt(0).toUpperCase()} 
+                style={{ backgroundColor: theme.colors.errorContainer, marginBottom: 12 }} 
+                color={theme.colors.onErrorContainer} 
+              />
+              <Text style={{ fontWeight: 'bold', fontSize: 18 }}>{selectedAdmin.nama_lengkap}</Text>
+              <Text style={{ fontSize: 14, color: theme.colors.error }}>Membutuhkan PIN ({selectedAdmin.role})</Text>
+            </View>
+            <TextInput
+              label={`PIN Akses ${selectedAdmin.role}`}
+              mode="outlined"
+              secureTextEntry
+              keyboardType="numeric"
+              maxLength={6}
+              value={entry}
+              onChangeText={setEntry}
+              style={styles.input}
+              onSubmitEditing={handleAdminLogin}
+              disabled={loading}
+              autoFocus
             />
-          ))}
-        </View>
-        {error && <Text style={styles.errorText}>{t('pinWrong')}</Text>}
-      </View>
-
-      <View style={styles.keypad}>
-        {keys.map((key, idx) => {
-          if (key === '') return <View key={idx} style={styles.key} />;
-          if (key === 'del') {
-            return (
-              <TouchableOpacity key={idx} style={styles.key} onPress={handleDelete}>
-                <Delete size={26} color={colors.text} />
-              </TouchableOpacity>
-            );
-          }
-          return (
-            <TouchableOpacity key={idx} style={styles.key} onPress={() => handleDigit(key)}>
-              <Text style={styles.keyText}>{key}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Button 
+                mode="outlined" 
+                onPress={() => { setSelectedAdmin(null); setEntry(''); }} 
+                disabled={loading}
+                style={[styles.loginBtn, { flex: 1 }]}
+              >
+                Batal
+              </Button>
+              <Button 
+                mode="contained" 
+                onPress={handleAdminLogin} 
+                loading={loading}
+                disabled={loading || entry.length < 4}
+                style={[styles.loginBtn, { flex: 1 }]}
+              >
+                Masuk
+              </Button>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.form}>
+            <TextInput
+              label="PIN Akses"
+              mode="outlined"
+              secureTextEntry
+              keyboardType="numeric"
+              maxLength={6}
+              value={entry}
+              onChangeText={setEntry}
+              style={styles.input}
+              onSubmitEditing={handleLogin}
+              disabled={loading}
+            />
+            <Button 
+              mode="contained" 
+              onPress={handleLogin} 
+              loading={loading}
+              disabled={loading || entry.length < 4}
+              style={styles.loginBtn}
+            >
+              Masuk
+            </Button>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'space-between',
+    backgroundColor: theme.colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
   },
   top: {
     alignItems: 'center',
-    marginTop: 60,
-  },
-  lockCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 48,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.text,
-    marginBottom: 6,
+    fontWeight: 'bold',
+    color: theme.colors.onBackground,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 32,
+    color: theme.colors.onSurfaceVariant,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 16,
+  form: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border,
+  input: {
+    marginBottom: 24,
   },
-  dotFilled: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  loginBtn: {
+    paddingVertical: 6,
   },
-  dotError: {
-    borderColor: colors.danger,
-  },
-  errorText: {
-    color: colors.danger,
-    marginTop: 16,
-    fontSize: 13,
-  },
-  keypad: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 40,
-    paddingBottom: 40,
-  },
-  key: {
-    width: '33.33%',
-    height: 72,
-    justifyContent: 'center',
+  userCard: {
+    width: 140,
+    padding: 16,
+    borderRadius: 20,
     alignItems: 'center',
-  },
-  keyText: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: colors.text,
-  },
+    backgroundColor: theme.colors.surfaceVariant,
+  }
 });

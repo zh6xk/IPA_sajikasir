@@ -1,11 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import * as Localization from 'expo-localization';
+import * as SQLite from 'expo-sqlite';
+
+// --- Set this to true to WIPE all data on every code change in Dev Mode ---
+const WIPE_DATA_ON_LOAD = false;
 import { en } from '../locales/en';
 import { id } from '../locales/id';
 import {
   Product, getProducts, insertProduct, updateProduct, deleteProduct as dbDeleteProduct,
   Customer, getCustomers, insertCustomer, updateCustomer, deleteCustomer as dbDeleteCustomer,
+  MasterBahan, getMasterBahan, insertMasterBahan, updateMasterBahan, deleteMasterBahan as dbDeleteMasterBahan,
+  ResepProduk, getResepProduk, updateResepProduk,
+  User, verifyLogin, insertUser, wipeDatabase
 } from '../database/db';
 import { lightTheme, darkTheme, ThemeColors } from '../theme/Theme';
 
@@ -17,12 +25,19 @@ interface AppContextType {
   userLocation: string;
   setUserLocation: (loc: string) => void;
   isFirstTime: boolean;
-  completeOnboarding: (name: string, location: string, store: string) => void;
+  completeOnboarding: (name: string, location: string, store: string, pin: string) => Promise<void>;
+  isTutorialDone: boolean;
+  completeTutorial: () => Promise<void>;
   products: Product[];
   refreshProducts: () => Promise<void>;
-  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<number>;
   editProduct: (product: Product) => Promise<void>;
   removeProduct: (id: number) => Promise<void>;
+  masterBahan: MasterBahan[];
+  refreshMasterBahan: () => Promise<void>;
+  addMasterBahan: (b: Omit<MasterBahan, 'id_bahan'>) => Promise<number>;
+  editMasterBahan: (b: MasterBahan) => Promise<void>;
+  removeMasterBahan: (id: number) => Promise<void>;
   cart: Record<number, number>;
   addToCart: (product: Product) => boolean;
   decreaseInCart: (product: Product) => void;
@@ -36,9 +51,15 @@ interface AppContextType {
   setTaxRate: (rate: number) => void;
   trackStock: boolean;
   setTrackStock: (val: boolean) => void;
-  // PIN lock
-  pin: string;
-  setPin: (pin: string) => void;
+  // RBAC Authentication
+  currentUser: User | null;
+  login: (pin: string) => Promise<boolean>;
+  loginWithoutPin: (user: User) => void;
+  logout: () => void;
+  allowLoginWithoutPin: boolean;
+  setAllowLoginWithoutPin: (val: boolean) => void;
+  isOwnerDevice: boolean;
+  setIsOwnerDevice: (val: boolean) => void;
   // Customers
   customers: Customer[];
   refreshCustomers: () => Promise<void>;
@@ -71,12 +92,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [userName, setUserNameState] = useState('');
   const [userLocation, setUserLocationState] = useState('Jakarta Selatan');
   const [isFirstTime, setIsFirstTime] = useState(true);
+  const [isTutorialDone, setIsTutorialDone] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [masterBahan, setMasterBahan] = useState<MasterBahan[]>([]);
   const [cart, setCart] = useState<Record<number, number>>({});
   const [isDark, setIsDark] = useState(false);
   const [taxRate, setTaxRateState] = useState(0);
   const [trackStock, setTrackStockState] = useState(false);
-  const [pin, setPinState] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [allowLoginWithoutPin, setAllowLoginWithoutPinState] = useState(false);
+  const [isOwnerDevice, setIsOwnerDeviceState] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [qrisImage, setQrisImageState] = useState('');
   const [qrisName, setQrisNameState] = useState('');
@@ -90,11 +115,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadPrefs();
     refreshProducts();
     refreshCustomers();
+    refreshMasterBahan();
   }, []);
 
   const loadPrefs = async () => {
+    if (__DEV__ && WIPE_DATA_ON_LOAD) {
+      console.log('DEV WIPE: Wiping all AsyncStorage and SQLite data...');
+      await AsyncStorage.clear();
+      await wipeDatabase();
+      // reset memory state
+      setIsFirstTime(true);
+      setIsTutorialDone(false);
+      setCurrentUser(null);
+    }
+
     const firstTime = await AsyncStorage.getItem('is_first_time');
     if (firstTime === 'false') setIsFirstTime(false);
+
+    const tutorialDone = await AsyncStorage.getItem('is_tutorial_done');
+    if (tutorialDone === 'true') setIsTutorialDone(true);
 
     const name = await AsyncStorage.getItem('user_name');
     if (name) setUserNameState(name);
@@ -114,8 +153,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const track = await AsyncStorage.getItem('track_stock');
     if (track === 'true') setTrackStockState(true);
 
-    const savedPin = await AsyncStorage.getItem('app_pin');
-    if (savedPin) setPinState(savedPin);
+    // We no longer load pin from SecureStore/AsyncStorage as we use RBAC now.
+    // Optionally check if we have a persisted session here later.
 
     const qi = await AsyncStorage.getItem('qris_image');
     if (qi) setQrisImageState(qi);
@@ -137,6 +176,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const lang = await AsyncStorage.getItem('app_language');
     if (lang) setLanguageState(lang);
+
+    const allowBypass = await AsyncStorage.getItem('allow_login_without_pin');
+    if (allowBypass === 'true') setAllowLoginWithoutPinState(true);
+
+    const ownerDev = await AsyncStorage.getItem('is_owner_device');
+    if (ownerDev === 'true') setIsOwnerDeviceState(true);
+
+    // Auto-login last user
+    const lastUserStr = await AsyncStorage.getItem('last_logged_in_user');
+    if (lastUserStr) {
+      try {
+        const parsedUser = JSON.parse(lastUserStr);
+        if (parsedUser && parsedUser.status_aktif) {
+          setCurrentUser(parsedUser);
+        }
+      } catch (e) {
+        console.error('Failed to parse last logged in user', e);
+      }
+    }
   };
 
   const setStoreName = async (name: string) => {
@@ -164,14 +222,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.setItem('track_stock', val ? 'true' : 'false');
   };
 
-  const setPin = async (newPin: string) => {
-    setPinState(newPin);
-    if (newPin) {
-      await AsyncStorage.setItem('app_pin', newPin);
-    } else {
-      await AsyncStorage.removeItem('app_pin');
-    }
-  };
+
 
   const setQrisImage = async (val: string) => {
     setQrisImageState(val);
@@ -202,6 +253,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.setItem('app_language', val);
   };
 
+  const setAllowLoginWithoutPin = async (val: boolean) => {
+    setAllowLoginWithoutPinState(val);
+    await AsyncStorage.setItem('allow_login_without_pin', val ? 'true' : 'false');
+  };
+
+  const setIsOwnerDevice = async (val: boolean) => {
+    setIsOwnerDeviceState(val);
+    await AsyncStorage.setItem('is_owner_device', val ? 'true' : 'false');
+  };
+
   const t = (key: keyof typeof id): string => {
     let activeLang = language;
     if (activeLang === 'system') {
@@ -216,7 +277,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return dict[key] || key;
   };
 
-  const completeOnboarding = async (name: string, location: string, store: string) => {
+  const completeOnboarding = async (name: string, location: string, store: string, pin: string) => {
+    // Save preferences
     await AsyncStorage.setItem('user_name', name);
     await AsyncStorage.setItem('user_location', location);
     await AsyncStorage.setItem('store_name', store);
@@ -224,7 +286,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setUserNameState(name);
     setUserLocationState(location);
     setStoreNameState(store);
+
+    // Create the first Owner user
+    await insertUser({
+      nama_lengkap: `${name} (Owner)`,
+      pin_login: pin,
+      role: 'Owner',
+      status_aktif: true
+    });
+
+    // Auto-login the new user
+    await login(pin);
+    
+    // Set First Time to false AFTER everything is done, 
+    // so the App doesn't unmount SplashScreen prematurely
     setIsFirstTime(false);
+  };
+
+  const completeTutorial = async () => {
+    setIsTutorialDone(true);
+    await AsyncStorage.setItem('is_tutorial_done', 'true');
   };
 
   const toggleTheme = async () => {
@@ -238,9 +319,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setProducts(data);
   };
 
-  const addProduct = async (product: Omit<Product, 'id'>) => {
-    await insertProduct(product);
+  const addProduct = async (product: Omit<Product, 'id'>): Promise<number> => {
+    const id = await insertProduct(product);
     await refreshProducts();
+    return id;
   };
 
   const editProduct = async (product: Product) => {
@@ -311,17 +393,65 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await refreshCustomers();
   };
 
+  const refreshMasterBahan = async () => {
+    const data = await getMasterBahan();
+    setMasterBahan(data);
+  };
+
+  const addMasterBahan = async (b: Omit<MasterBahan, 'id_bahan'>): Promise<number> => {
+    const id = await insertMasterBahan(b);
+    await refreshMasterBahan();
+    return id;
+  };
+
+  const editMasterBahan = async (b: MasterBahan) => {
+    await updateMasterBahan(b);
+    await refreshMasterBahan();
+  };
+
+  const removeMasterBahan = async (id: number) => {
+    await dbDeleteMasterBahan(id);
+    await refreshMasterBahan();
+  };
+
+  const login = async (pin: string): Promise<boolean> => {
+    const user = await verifyLogin(pin);
+    if (user) {
+      setCurrentUser(user);
+      await AsyncStorage.setItem('last_logged_in_user', JSON.stringify(user));
+      return true;
+    }
+    return false;
+  };
+
+  const loginWithoutPin = async (user: User) => {
+    setCurrentUser(user);
+    await AsyncStorage.setItem('last_logged_in_user', JSON.stringify(user));
+  };
+
+  const logout = async () => {
+    setCurrentUser(null);
+    await AsyncStorage.removeItem('last_logged_in_user');
+  };
+
   const colors = isDark ? darkTheme : lightTheme;
 
   return (
     <AppContext.Provider value={{
-      storeName, setStoreName, userName, setUserName, userLocation, setUserLocation,
+      storeName, setStoreName,
+      userName, setUserName,
+      userLocation, setUserLocation,
       isFirstTime, completeOnboarding,
+      isTutorialDone, completeTutorial,
       products, refreshProducts, addProduct, editProduct, removeProduct,
+      masterBahan, refreshMasterBahan, addMasterBahan, editMasterBahan, removeMasterBahan,
       cart, addToCart, decreaseInCart, removeFromCart, clearCart,
       isDark, toggleTheme, colors,
-      taxRate, setTaxRate, trackStock, setTrackStock,
-      pin, setPin,
+      taxRate, setTaxRate,
+      trackStock, setTrackStock,
+      currentUser, login, loginWithoutPin, logout,
+      allowLoginWithoutPin, setAllowLoginWithoutPin,
+      isOwnerDevice, setIsOwnerDevice,
       customers, refreshCustomers, addCustomer, editCustomer, removeCustomer,
       qrisImage, setQrisImage, qrisName, setQrisName, qrisNmid, setQrisNmid,
       bankName, setBankName, bankAccount, setBankAccount, bankAccountName, setBankAccountName,
